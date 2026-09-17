@@ -40,6 +40,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":spotify-app-remote"))
+    implementation(libs.gson)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

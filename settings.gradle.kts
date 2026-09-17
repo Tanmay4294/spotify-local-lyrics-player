@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Spotify Local Lyrics Player"
 include(":app")
+include(":spotify-app-remote")
