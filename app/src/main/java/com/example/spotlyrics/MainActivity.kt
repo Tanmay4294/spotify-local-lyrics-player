@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,43 +12,48 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.example.spotlyrics.spotify.SpotifyConnectionState
-import com.example.spotlyrics.spotify.SpotifyManager
 import com.example.spotlyrics.spotify.SpotifyPlayerState
+import com.example.spotlyrics.ui.PlayerViewModel
 import com.example.spotlyrics.ui.theme.SpotifyLocalLyricsPlayerTheme
 
 class MainActivity : ComponentActivity() {
+    private val viewModel: PlayerViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val spotifyManager = SpotifyManager.getInstance()
 
         setContent {
             SpotifyLocalLyricsPlayerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    AppRemoteScreen(
-                        spotifyManager = spotifyManager,
+                    PlayerScreen(
+                        viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -57,29 +63,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppRemoteScreen(
-    spotifyManager: SpotifyManager,
+fun PlayerScreen(
+    viewModel: PlayerViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
-    val connectionState by spotifyManager.connectionState.collectAsState()
-    val playerState by spotifyManager.playerState.collectAsState()
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                spotifyManager.connect(context)
-            } else if (event == Lifecycle.Event.ON_STOP) {
-                spotifyManager.disconnect()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
+    val connectionState by viewModel.connectionState.collectAsState()
+    val playerState by viewModel.playerState.collectAsState()
 
     Column(
         modifier = modifier
@@ -122,12 +113,17 @@ fun AppRemoteScreen(
 
         when (connectionState) {
             is SpotifyConnectionState.Connected -> {
-                OutlinedButton(onClick = { spotifyManager.disconnect() }) {
+                PlaybackControls(
+                    viewModel = viewModel,
+                    isPlaying = playerState?.isPlaying ?: false
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(onClick = { viewModel.disconnectSpotify() }) {
                     Text("Disconnect App Remote")
                 }
             }
             else -> {
-                Button(onClick = { spotifyManager.connect(context) }) {
+                Button(onClick = { viewModel.connectSpotify(context) }) {
                     Text("Connect App Remote")
                 }
             }
@@ -183,6 +179,52 @@ fun PlayerInfoCard(playerState: SpotifyPlayerState?) {
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun PlaybackControls(
+    viewModel: PlayerViewModel,
+    isPlaying: Boolean
+) {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = { viewModel.skipPrevious() }) {
+            Icon(
+                imageVector = Icons.Default.SkipPrevious,
+                contentDescription = "Previous track",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.width(24.dp))
+        if (isPlaying) {
+            IconButton(onClick = { viewModel.pause() }) {
+                Icon(
+                    imageVector = Icons.Default.Pause,
+                    contentDescription = "Pause",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        } else {
+            IconButton(onClick = { viewModel.play() }) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(24.dp))
+        IconButton(onClick = { viewModel.skipNext() }) {
+            Icon(
+                imageVector = Icons.Default.SkipNext,
+                contentDescription = "Next track",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
