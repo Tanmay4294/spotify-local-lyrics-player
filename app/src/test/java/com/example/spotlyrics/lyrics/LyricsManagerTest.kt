@@ -6,8 +6,9 @@ import com.example.spotlyrics.data.repository.LyricsCacheRepository
 import com.example.spotlyrics.spotify.SpotifyTrack
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -22,7 +23,7 @@ class LyricsManagerTest {
 
     @Test
     fun newTrackEmitsLoadingThenFoundWhenLyricsAvailable() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "test",
             plainText = "Test lyrics",
@@ -48,7 +49,7 @@ class LyricsManagerTest {
 
     @Test
     fun newTrackEmitsLoadingThenNotFoundWhenNoLyrics() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(null)
 
         val track = createTrack(id = "1", name = "Test Track", artist = "Test Artist")
@@ -66,7 +67,7 @@ class LyricsManagerTest {
 
     @Test
     fun providerExceptionResultsInProviderError() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextException(Exception("Network error"))
 
         val track = createTrack(id = "1", name = "Test Track", artist = "Test Artist")
@@ -83,7 +84,7 @@ class LyricsManagerTest {
 
     @Test
     fun staleResultProtectionTrackAResultIgnoredWhenTrackBArrivesFirst() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "test",
             plainText = "Track A lyrics",
@@ -120,7 +121,7 @@ class LyricsManagerTest {
 
     @Test
     fun duplicateSameTrackDoesNotCreateDuplicateRequests() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "test",
             plainText = "Test lyrics",
@@ -145,7 +146,7 @@ class LyricsManagerTest {
 
     @Test
     fun nullTrackCancelsActiveRequestAndShowsNotFound() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "test",
             plainText = "Test lyrics",
@@ -168,14 +169,14 @@ class LyricsManagerTest {
 
     @Test
     fun noCurrentTrackShowsNotFound() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         val finalStatus = lyricsManager.lyricsStatus.value
         assertTrue(finalStatus is LyricsStatus.NotFound)
     }
 
     @Test
     fun cacheHitReturnsCachedLyricsWithoutCallingProvider() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         
         val track = createTrack(id = "1", name = "Test Track", artist = "Test Artist")
         
@@ -206,7 +207,7 @@ class LyricsManagerTest {
 
     @Test
     fun cacheMissThenProviderSuccessSavesToCache() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "lrclib",
             plainText = "Provider lyrics",
@@ -233,7 +234,7 @@ class LyricsManagerTest {
 
     @Test
     fun cacheMissProviderReturnsNullReturnsNotFound() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(null)
 
         val track = createTrack(id = "1", name = "Test Track", artist = "Test Artist")
@@ -250,7 +251,7 @@ class LyricsManagerTest {
 
     @Test
     fun invalidCachedEntryTriggersProviderLookup() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "lrclib",
             plainText = "Provider lyrics",
@@ -288,7 +289,7 @@ class LyricsManagerTest {
 
     @Test
     fun staleCacheResultProtectionTrackACacheResultIgnoredWhenTrackBArrives() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         
         val trackA = createTrack(id = "A", name = "Track A", artist = "Artist")
         val trackB = createTrack(id = "B", name = "Track B", artist = "Artist")
@@ -320,7 +321,7 @@ class LyricsManagerTest {
 
     @Test
     fun staleProviderResultProtectionTrackAProviderResultIgnoredWhenTrackBArrives() = runTest {
-        val lyricsManager = LyricsManager(provider, cacheRepository)
+        val lyricsManager = LyricsManager(provider, cacheRepository, StandardTestDispatcher(testScheduler))
         provider.setNextResult(LyricsResult(
             source = "lrclib",
             plainText = "Track A provider lyrics",

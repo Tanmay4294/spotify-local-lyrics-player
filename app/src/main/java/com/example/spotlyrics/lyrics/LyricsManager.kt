@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 class LyricsManager(
     private val provider: LyricsProvider,
     private val cacheRepository: LyricsCacheRepository,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val dispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Main,
+    private val scope: CoroutineScope = CoroutineScope(dispatcher + SupervisorJob())
 ) : ViewModel() {
 
     private var currentTrackId: String? = null
