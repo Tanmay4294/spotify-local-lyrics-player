@@ -2,6 +2,7 @@ package com.example.spotlyrics.lyrics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.spotlyrics.data.repository.LyricsCacheRepository
 import com.example.spotlyrics.spotify.SpotifyTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,7 @@ import kotlinx.coroutines.launch
 
 class LyricsManager(
     private val provider: LyricsProvider,
+    private val cacheRepository: LyricsCacheRepository,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 ) : ViewModel() {
 
@@ -41,6 +43,15 @@ class LyricsManager(
         _lyricsStatus.value = LyricsStatus.Loading
         
         searchJob = scope.launch {
+            // Try cache first
+            val cachedResult = cacheRepository.getCachedLyrics(track)
+            
+            if (trackId == currentTrackId && cachedResult != null) {
+                _lyricsStatus.value = LyricsStatus.Found(cachedResult)
+                return@launch
+            }
+
+            // Cache miss - query provider
             try {
                 val result = provider.search(
                     title = track.name,
@@ -51,8 +62,11 @@ class LyricsManager(
 
                 if (trackId == currentTrackId) {
                     when {
-                        result != null && result.found && (result.plainText?.isNotBlank() == true || result.syncedText?.isNotBlank() == true) ->
+                        result != null && result.found && (result.plainText?.isNotBlank() == true || result.syncedText?.isNotBlank() == true) -> {
+                            // Save successful result to cache
+                            cacheRepository.saveLyrics(track, result)
                             _lyricsStatus.value = LyricsStatus.Found(result)
+                        }
                         result != null && !result.found ->
                             _lyricsStatus.value = LyricsStatus.NotFound
                         else ->

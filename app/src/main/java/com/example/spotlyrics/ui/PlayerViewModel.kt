@@ -1,7 +1,11 @@
 package com.example.spotlyrics.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.spotlyrics.data.db.AppDatabase
+import com.example.spotlyrics.data.repository.LyricsCacheRepository
 import com.example.spotlyrics.lyrics.LyricsManager
 import com.example.spotlyrics.lyrics.LyricsProvider
 import com.example.spotlyrics.lyrics.LyricsStatus
@@ -16,11 +20,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(
+    private val context: Context,
     private val lyricsProvider: LyricsProvider = LrcLibProvider()
 ) : ViewModel() {
 
     private val spotifyManager = SpotifyManager.getInstance()
-    private val lyricsManager = LyricsManager(lyricsProvider)
+    private val cacheRepository = LyricsCacheRepository(AppDatabase.getInstance(context).lyricsCacheDao())
+    private val lyricsManager = LyricsManager(lyricsProvider, cacheRepository)
 
     private val _connectionState = MutableStateFlow<SpotifyConnectionState>(SpotifyConnectionState.Disconnected)
     val connectionState: StateFlow<SpotifyConnectionState> = _connectionState
@@ -71,5 +77,12 @@ class PlayerViewModel(
 
     fun skipPrevious() {
         spotifyManager.skipPrevious()
+    }
+
+    class Factory(private val context: Context) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return PlayerViewModel(context) as T
+        }
     }
 }

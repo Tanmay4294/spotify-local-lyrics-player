@@ -46,7 +46,7 @@ import com.example.spotlyrics.ui.PlayerViewModel
 import com.example.spotlyrics.ui.theme.SpotifyLocalLyricsPlayerTheme
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: PlayerViewModel by viewModels()
+    private val viewModel: PlayerViewModel by viewModels { PlayerViewModel.Factory(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
