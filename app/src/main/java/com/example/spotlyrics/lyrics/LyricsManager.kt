@@ -26,6 +26,11 @@ class LyricsManager(
     private val _lyricsStatus = MutableStateFlow<LyricsStatus>(LyricsStatus.NotFound)
     val lyricsStatus: StateFlow<LyricsStatus> = _lyricsStatus
 
+    fun retry(track: SpotifyTrack?) {
+        currentTrackId = null
+        onTrackChanged(track)
+    }
+
     fun onTrackChanged(track: SpotifyTrack?) {
         val trackId = track?.id
         
