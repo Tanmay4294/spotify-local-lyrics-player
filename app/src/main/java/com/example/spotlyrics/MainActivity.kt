@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.spotlyrics.lyrics.LyricsResult
+import com.example.spotlyrics.lyrics.LyricsStatus
 import com.example.spotlyrics.spotify.SpotifyConnectionState
 import com.example.spotlyrics.spotify.SpotifyPlayerState
 import com.example.spotlyrics.ui.PlayerViewModel
@@ -71,6 +74,7 @@ fun PlayerScreen(
 
     val connectionState by viewModel.connectionState.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
+    val lyricsStatus by viewModel.lyricsStatus.collectAsState()
 
     Column(
         modifier = modifier
@@ -108,6 +112,13 @@ fun PlayerScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         PlayerInfoCard(playerState = playerState)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        LyricsSection(
+            lyricsStatus = lyricsStatus,
+            track = playerState?.track
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -178,6 +189,171 @@ fun PlayerInfoCard(playerState: SpotifyPlayerState?) {
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun LyricsSection(
+    lyricsStatus: LyricsStatus,
+    track: com.example.spotlyrics.spotify.SpotifyTrack?
+) {
+    when (lyricsStatus) {
+        is LyricsStatus.Loading -> {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.width(48.dp).height(48.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Loading lyrics...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        is LyricsStatus.Found -> {
+            LyricsView(lyrics = lyricsStatus.lyrics)
+        }
+        LyricsStatus.NotFound, is LyricsStatus.ProviderError -> {
+            AlbumOnlyView(
+                track = track,
+                isError = lyricsStatus is LyricsStatus.ProviderError,
+                errorMessage = if (lyricsStatus is LyricsStatus.ProviderError) lyricsStatus.message else null
+            )
+        }
+    }
+}
+
+@Composable
+fun LyricsView(lyrics: LyricsResult) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Lyrics (${lyrics.source})",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (lyrics.syncedText?.isNotBlank() == true) {
+                Text(
+                    text = lyrics.syncedText!!,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (lyrics.plainText?.isNotBlank() == true) {
+                Text(
+                    text = lyrics.plainText!!,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AlbumOnlyView(
+    track: com.example.spotlyrics.spotify.SpotifyTrack?,
+    isError: Boolean = false,
+    errorMessage: String? = null
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (isError) {
+                Text(
+                    text = "Lyrics unavailable",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.error
+                )
+                if (!errorMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            } else {
+                Text(
+                    text = "No lyrics found",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Showing track info instead",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            track?.let { t ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = t.name,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = t.artistName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                    if (!t.albumName.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = t.albumName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    // Placeholder for album artwork
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.width(120.dp).height(120.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "🎵",
+                                style = MaterialTheme.typography.displayMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
