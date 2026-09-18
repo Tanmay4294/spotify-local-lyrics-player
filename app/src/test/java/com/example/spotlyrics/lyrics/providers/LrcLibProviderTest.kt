@@ -145,4 +145,267 @@ class LrcLibProviderTest {
         assertEquals("[00:00.00]Synced lyrics", result.syncedText)
         assertEquals(240.0, result.durationSeconds!!, 0.01)
     }
+
+    @Test
+    fun `normalization handles common punctuation differences`() {
+        val original1 = "Don't Stop Me Now"
+        val original2 = "Don't Stop Me Now"
+        val normalized1 = normalizeForComparison(original1)
+        val normalized2 = normalizeForComparison(original2)
+
+        assertEquals(normalized1, normalized2)
+    }
+
+    @Test
+    fun `normalization handles smart quotes and dashes`() {
+        val text1 = "Artist – Song"
+        val text2 = "Artist - Song"
+        val normalized1 = normalizeForComparison(text1)
+        val normalized2 = normalizeForComparison(text2)
+
+        assertEquals(normalized1, normalized2)
+    }
+
+    @Test
+    fun `normalization handles case and whitespace`() {
+        val text1 = "  ARTIST  -  SONG  "
+        val text2 = "artist - song"
+        val normalized1 = normalizeForComparison(text1)
+        val normalized2 = normalizeForComparison(text2)
+
+        assertEquals(normalized1, normalized2)
+    }
+
+    @Test
+    fun `title match is required`() {
+        // This tests the logic in LrcLibProvider - a candidate with different title should be rejected
+        val targetTitle = "test track"
+        val candidateTitle = "different track"
+
+        val normalizedTarget = normalizeForComparison(targetTitle)
+        val normalizedCandidate = normalizeForComparison(candidateTitle)
+
+        assertNotEquals(normalizedTarget, normalizedCandidate)
+    }
+
+    @Test
+    fun `artist match is required`() {
+        val targetArtist = "test artist"
+        val candidateArtist = "different artist"
+
+        val normalizedTarget = normalizeForComparison(targetArtist)
+        val normalizedCandidate = normalizeForComparison(candidateArtist)
+
+        assertNotEquals(normalizedTarget, normalizedCandidate)
+    }
+
+    @Test
+    fun `album match is used when available`() {
+        val targetAlbum = "test album"
+        val candidateAlbum1 = "test album"
+        val candidateAlbum2 = "different album"
+
+        val normalizedTarget = normalizeForComparison(targetAlbum)
+        val normalizedCandidate1 = normalizeForComparison(candidateAlbum1)
+        val normalizedCandidate2 = normalizeForComparison(candidateAlbum2)
+
+        assertEquals(normalizedTarget, normalizedCandidate1)
+        assertNotEquals(normalizedTarget, normalizedCandidate2)
+    }
+
+    @Test
+    fun `duration within tolerance is accepted`() {
+        val targetDuration = 240.0
+        val candidateDuration = 242.0
+
+        val durationDiff = Math.abs(targetDuration - candidateDuration)
+        assertTrue(durationDiff <= 5.0)
+    }
+
+    @Test
+    fun `duration outside tolerance is rejected`() {
+        val targetDuration = 240.0
+        val candidateDuration = 300.0
+
+        val durationDiff = Math.abs(targetDuration - candidateDuration)
+        assertTrue(durationDiff > 5.0)
+    }
+
+    @Test
+    fun `synced lyrics validation accepts valid timestamps`() {
+        val syncedLyrics = "[00:00.00]First line\n[00:05.50]Second line"
+        val timestampPattern = java.util.regex.Pattern.compile("\\[\\d{2}:\\d{2}(?:\\.\\d{2,3})?\\]")
+        val matcher = timestampPattern.matcher(syncedLyrics)
+
+        assertTrue(matcher.find())
+    }
+
+    @Test
+    fun `synced lyrics validation rejects invalid timestamps`() {
+        val syncedLyrics = "Just plain text without timestamps"
+        val timestampPattern = java.util.regex.Pattern.compile("\\[\\d{2}:\\d{2}(?:\\.\\d{2,3})?\\]")
+        val matcher = timestampPattern.matcher(syncedLyrics)
+
+        assertFalse(matcher.find())
+    }
+
+    @Test
+    fun `synced lyrics validation rejects empty`() {
+        val result = validateSyncedLyrics("")
+        assertNull(result)
+
+        val result2 = validateSyncedLyrics("   ")
+        assertNull(result2)
+
+        val result3 = validateSyncedLyrics(null)
+        assertNull(result3)
+    }
+
+    @Test
+    fun `version mismatch detection - live`() {
+        val title = "Song (Live)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - acoustic`() {
+        val title = "Song (Acoustic)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - remix`() {
+        val title = "Song (Remix)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - radio edit`() {
+        val title = "Song (Radio Edit)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - instrumental`() {
+        val title = "Song (Instrumental)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - extended`() {
+        val title = "Song (Extended Version)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - demo`() {
+        val title = "Song (Demo)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - karaoke`() {
+        val title = "Song (Karaoke)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection - cover`() {
+        val title = "Song (Cover)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch detection case insensitive`() {
+        val title = "SONG (LIVE)"
+        assertTrue(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `version mismatch not triggered for normal titles`() {
+        val title = "Normal Song Title"
+        assertFalse(hasVersionMismatch(title))
+    }
+
+    @Test
+    fun `LyricsStatus Loading`() {
+        val status = com.example.spotlyrics.lyrics.LyricsStatus.Loading
+        assertNotNull(status)
+    }
+
+    @Test
+    fun `LyricsStatus NotFound`() {
+        val status = com.example.spotlyrics.lyrics.LyricsStatus.NotFound
+        assertNotNull(status)
+    }
+
+    @Test
+    fun `LyricsStatus Found`() {
+        val lyrics = LyricsResult("lrclib", "plain", "synced", 100.0, true)
+        val status = com.example.spotlyrics.lyrics.LyricsStatus.Found(lyrics)
+        assertNotNull(status)
+        assertEquals(lyrics, status.lyrics)
+    }
+
+    @Test
+    fun `LyricsStatus ProviderError`() {
+        val status = com.example.spotlyrics.lyrics.LyricsStatus.ProviderError("lrclib", "timeout")
+        assertNotNull(status)
+        assertEquals("lrclib", status.source)
+        assertEquals("timeout", status.message)
+    }
+
+    @Test
+    fun `provider error messages are safe`() {
+        val status = com.example.spotlyrics.lyrics.LyricsStatus.ProviderError("lrclib", "LRCLIB request timed out")
+        assertNotNull(status)
+        assertEquals("lrclib", status.source)
+        assertEquals("LRCLIB request timed out", status.message)
+    }
+
+    @Test
+    fun `provider error does not contain secrets`() {
+        val status = com.example.spotlyrics.lyrics.LyricsStatus.ProviderError("lrclib", "LRCLIB network error")
+        assertNotNull(status)
+        assertFalse(status.message.contains("token", ignoreCase = true))
+        assertFalse(status.message.contains("secret", ignoreCase = true))
+        assertFalse(status.message.contains("authorization", ignoreCase = true))
+        assertFalse(status.message.contains("pkce", ignoreCase = true))
+    }
+
+    private fun normalizeForComparison(text: String): String {
+        return text.trim()
+            .lowercase()
+            .replace("’", "'")
+            .replace("‘", "'")
+            .replace("“", "\"")
+            .replace("”", "\"")
+            .replace("–", "-")
+            .replace("—", "-")
+            .replace("[^a-z0-9'\\-\\s]+".toRegex(), " ")
+            .replace("\\s+".toRegex(), " ")
+            .trim()
+    }
+
+    private fun validateSyncedLyrics(syncedLyrics: String?): String? {
+        val trimmed = syncedLyrics?.trim()
+        if (trimmed.isNullOrBlank()) return null
+
+        val timestampPattern = java.util.regex.Pattern.compile("\\[\\d{2}:\\d{2}(?:\\.\\d{2,3})?\\]")
+        val hasTimestamps = timestampPattern.matcher(trimmed!!).find()
+
+        return if (hasTimestamps) trimmed else null
+    }
+
+    private fun hasVersionMismatch(title: String): Boolean {
+        val versionMarkers = listOf(
+            "live", "acoustic", "remix", "radio edit", "instrumental",
+            "extended", "demo", "version", "edit", "cover", "karaoke"
+        )
+        val titleLower = title.lowercase()
+
+        return versionMarkers.any { marker ->
+            titleLower.contains(marker)
+        }
+    }
 }

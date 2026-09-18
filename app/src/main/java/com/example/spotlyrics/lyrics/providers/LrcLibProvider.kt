@@ -7,9 +7,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.regex.Pattern
 
 class LrcLibProvider : LyricsProvider {
 
@@ -49,19 +51,21 @@ class LrcLibProvider : LyricsProvider {
         }.joinToString("&")
 
         val url = URL("https://lrclib.net/api/search?$encodedParams")
-        val connection = url.openConnection()
+        val connection = url.openConnection() as HttpURLConnection
         connection.connectTimeout = 10000
         connection.readTimeout = 10000
-
-        val inputStream = try {
-            connection.getInputStream()
-        } catch (e: Exception) {
-            return@withContext null
-        }
+        connection.requestMethod = "GET"
 
         try {
-            val reader = BufferedReader(InputStreamReader(inputStream, StandardCharsets.UTF_8))
+            val responseCode = connection.responseCode
+
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                return@withContext handleErrorResponse(responseCode)
+            }
+
+            val reader = BufferedReader(InputStreamReader(connection.inputStream, StandardCharsets.UTF_8))
             val responseBody = reader.use { it.readText() }
+
             val results = gson.fromJson(responseBody, Array<LrcLibSearchResponse>::class.java)
 
             if (results.isEmpty()) {
@@ -71,24 +75,39 @@ class LrcLibProvider : LyricsProvider {
             val match = findBestMatch(results, title, artist, album, durationSeconds)
                 ?: return@withContext null
 
-            if (match.plainLyrics.isNullOrBlank() && match.syncedLyrics.isNullOrBlank()) {
+            val validatedSynced = validateSyncedLyrics(match.syncedLyrics)
+
+            if (match.plainLyrics.isNullOrBlank() && validatedSynced == null) {
                 return@withContext null
             }
 
             LyricsResult(
                 source = "lrclib",
-                plainText = match.plainLyrics,
-                syncedText = match.syncedLyrics,
+                plainText = match.plainLyrics?.takeIf { it.isNotBlank() },
+                syncedText = validatedSynced,
                 durationSeconds = match.duration,
                 found = true
             )
+        } catch (e: java.net.SocketTimeoutException) {
+            null
+        } catch (e: java.io.IOException) {
+            null
+        } catch (e: com.google.gson.JsonSyntaxException) {
+            null
         } catch (e: Exception) {
             null
         } finally {
-            try {
-                connection.getInputStream()?.close()
-            } catch (_: Exception) {
-            }
+            connection.disconnect()
+        }
+    }
+
+    private fun handleErrorResponse(responseCode: Int): LyricsResult? {
+        return when (responseCode) {
+            HttpURLConnection.HTTP_NOT_FOUND -> null
+            HttpURLConnection.HTTP_CLIENT_TIMEOUT -> null
+            429 -> null
+            in 500..599 -> null
+            else -> null
         }
     }
 
@@ -103,35 +122,99 @@ class LrcLibProvider : LyricsProvider {
         val normalizedTargetArtist = normalizeForComparison(targetArtist)
         val normalizedTargetAlbum = targetAlbum?.let { normalizeForComparison(it) }
 
+        var bestMatch: LrcLibSearchResponse? = null
+        var bestScore = -1
+
         for (candidate in candidates) {
-            val candidateTitle = normalizeForComparison(candidate.trackName)
-            val candidateArtist = normalizeForComparison(candidate.artistName)
+            val score = scoreCandidate(
+                candidate,
+                normalizedTargetTitle,
+                normalizedTargetArtist,
+                normalizedTargetAlbum,
+                targetDuration
+            )
 
-            if (candidateTitle != normalizedTargetTitle || candidateArtist != normalizedTargetArtist) {
-                continue
+            if (score > bestScore) {
+                bestScore = score
+                bestMatch = candidate
             }
-
-            if (normalizedTargetAlbum != null) {
-                val candidateAlbum = candidate.albumName?.let { normalizeForComparison(it) }
-                if (candidateAlbum != null && candidateAlbum != normalizedTargetAlbum) {
-                    continue
-                }
-            }
-
-            if (targetDuration != null && candidate.duration != null) {
-                val durationDiff = Math.abs(targetDuration - candidate.duration!!)
-                if (durationDiff > 5.0) {
-                    continue
-                }
-            }
-
-            return candidate
         }
 
-        return null
+        return if (bestScore >= 2) bestMatch else null
+    }
+
+    private fun scoreCandidate(
+        candidate: LrcLibSearchResponse,
+        targetTitle: String,
+        targetArtist: String,
+        targetAlbum: String?,
+        targetDuration: Double?
+    ): Int {
+        var score = 0
+
+        val candidateTitle = normalizeForComparison(candidate.trackName)
+        val candidateArtist = normalizeForComparison(candidate.artistName)
+
+        if (candidateTitle != targetTitle) return -1
+        if (candidateArtist != targetArtist) return -1
+
+        score += 2
+
+        if (targetAlbum != null) {
+            val candidateAlbum = candidate.albumName?.let { normalizeForComparison(it) }
+            if (candidateAlbum != null && candidateAlbum == targetAlbum) {
+                score += 1
+            }
+        }
+
+        if (targetDuration != null && candidate.duration != null) {
+            val durationDiff = Math.abs(targetDuration - candidate.duration!!)
+            if (durationDiff <= 5.0) {
+                score += 1
+            }
+        }
+
+        if (hasVersionMismatch(candidate)) {
+            score -= 2
+        }
+
+        return score
+    }
+
+    private fun hasVersionMismatch(candidate: LrcLibSearchResponse): Boolean {
+        val versionMarkers = listOf(
+            "live", "acoustic", "remix", "radio edit", "instrumental",
+            "extended", "demo", "version", "edit", "cover", "karaoke"
+        )
+        val titleLower = candidate.trackName.lowercase()
+        val artistLower = candidate.artistName.lowercase()
+
+        return versionMarkers.any { marker ->
+            titleLower.contains(marker) || artistLower.contains(marker)
+        }
+    }
+
+    private fun validateSyncedLyrics(syncedLyrics: String?): String? {
+        val trimmed = syncedLyrics?.trim()
+        if (trimmed.isNullOrBlank()) return null
+
+        val timestampPattern = Pattern.compile("\\[\\d{2}:\\d{2}(?:\\.\\d{2,3})?\\]")
+        val hasTimestamps = timestampPattern.matcher(trimmed!!).find()
+
+        return if (hasTimestamps) trimmed else null
     }
 
     private fun normalizeForComparison(text: String): String {
-        return text.trim().lowercase()
+        return text.trim()
+            .lowercase()
+            .replace("’", "'")
+            .replace("‘", "'")
+            .replace("“", "\"")
+            .replace("”", "\"")
+            .replace("–", "-")
+            .replace("—", "-")
+            .replace("[^a-z0-9'\\-\\s]+".toRegex(), " ")
+            .replace("\\s+".toRegex(), " ")
+            .trim()
     }
 }
