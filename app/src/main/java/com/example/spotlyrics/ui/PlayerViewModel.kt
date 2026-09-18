@@ -34,6 +34,8 @@ class PlayerViewModel(
     private val _playerState = MutableStateFlow<SpotifyPlayerState?>(null)
     val playerState: StateFlow<SpotifyPlayerState?> = _playerState
 
+    val artworkBitmap: StateFlow<android.graphics.Bitmap?> = spotifyManager.artworkBitmap
+
     val lyricsStatus: StateFlow<LyricsStatus> = lyricsManager.lyricsStatus
 
     init {

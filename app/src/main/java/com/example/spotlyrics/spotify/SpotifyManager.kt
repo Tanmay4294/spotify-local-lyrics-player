@@ -45,6 +45,9 @@ class SpotifyManager private constructor() {
     private val _playerState = MutableStateFlow<SpotifyPlayerState?>(null)
     val playerState: StateFlow<SpotifyPlayerState?> = _playerState.asStateFlow()
 
+    private val _artworkBitmap = MutableStateFlow<android.graphics.Bitmap?>(null)
+    val artworkBitmap: StateFlow<android.graphics.Bitmap?> = _artworkBitmap.asStateFlow()
+
     fun observePlayerState(): StateFlow<SpotifyPlayerState> {
         return _playerState
             .filterNotNull()
@@ -123,6 +126,15 @@ class SpotifyManager private constructor() {
                 }
 
                 _playerState.value = newMappedState
+
+                val imageUri = sdkState.track?.imageUri
+                if (imageUri != null) {
+                    remote.imagesApi.getImage(imageUri).setResultCallback { bitmap ->
+                        _artworkBitmap.value = bitmap
+                    }
+                } else {
+                    _artworkBitmap.value = null
+                }
             }
             .setErrorCallback { throwable ->
                 Log.e(TAG, "PlayerState subscription error: ${throwable.localizedMessage}", throwable)
@@ -142,6 +154,7 @@ class SpotifyManager private constructor() {
         }
         spotifyAppRemote = null
         _playerState.value = null
+        _artworkBitmap.value = null
         _connectionState.value = SpotifyConnectionState.Disconnected
         Log.d(TAG, "Disconnected from Spotify App Remote")
     }
@@ -152,11 +165,11 @@ class SpotifyManager private constructor() {
             Log.w(TAG, "Cannot play: Spotify App Remote not connected")
             return
         }
-        remote.playerApi.play("spotify:app:player").setResultCallback { result ->
+        remote.playerApi.resume().setResultCallback { result ->
             if (result != null) {
-                Log.d(TAG, "Play command sent")
+                Log.d(TAG, "Resume command sent")
             } else {
-                Log.e(TAG, "Play command failed: null result")
+                Log.e(TAG, "Resume command failed: null result")
             }
         }
     }

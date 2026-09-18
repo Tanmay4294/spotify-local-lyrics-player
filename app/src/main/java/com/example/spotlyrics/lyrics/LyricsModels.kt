@@ -5,5 +5,6 @@ data class LyricsResult(
     val plainText: String?,
     val syncedText: String?,
     val durationSeconds: Double?,
-    val found: Boolean
+    val found: Boolean,
+    val lyricLines: List<LyricLine> = LrcParser.parse(syncedText)
 )

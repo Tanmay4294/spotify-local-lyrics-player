@@ -1,5 +1,6 @@
 package com.example.spotlyrics.ui.components
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,7 +31,9 @@ import com.example.spotlyrics.spotify.SpotifyTrack
 @Composable
 fun LyricsContent(
     lyricsStatus: LyricsStatus,
+    positionMs: Long,
     track: SpotifyTrack?,
+    artworkBitmap: Bitmap? = null,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -68,12 +70,6 @@ fun LyricsContent(
 
                 is LyricsStatus.Found -> {
                     val lyrics = lyricsStatus.lyrics
-                    val textToDisplay = when {
-                        !lyrics.syncedText.isNullOrBlank() -> lyrics.syncedText
-                        !lyrics.plainText.isNullOrBlank() -> lyrics.plainText
-                        else -> "No lyrics content available"
-                    }
-
                     Column(
                         modifier = Modifier.fillMaxSize()
                     ) {
@@ -85,19 +81,41 @@ fun LyricsContent(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            Text(
-                                text = textToDisplay ?: "",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    lineHeight = 26.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface
+
+                        if (lyrics.lyricLines.isNotEmpty()) {
+                            // Synced lyrics view
+                            SyncedLyrics(
+                                lines = lyrics.lyricLines,
+                                positionMs = positionMs,
+                                modifier = Modifier.weight(1f)
                             )
+                        } else if (!lyrics.plainText.isNullOrBlank()) {
+                            // Plain lyrics fallback view
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                Text(
+                                    text = lyrics.plainText,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        lineHeight = 26.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No lyrics content available",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
                         }
                     }
                 }
@@ -106,7 +124,10 @@ fun LyricsContent(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        AlbumArtwork(modifier = Modifier.size(140.dp))
+                        AlbumArtwork(
+                            bitmap = artworkBitmap,
+                            modifier = Modifier.size(140.dp)
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "No lyrics found",
@@ -129,7 +150,10 @@ fun LyricsContent(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        AlbumArtwork(modifier = Modifier.size(120.dp))
+                        AlbumArtwork(
+                            bitmap = artworkBitmap,
+                            modifier = Modifier.size(120.dp)
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "Lyrics Provider Error",
@@ -140,7 +164,7 @@ fun LyricsContent(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = lyricsStatus.message ?: "Failed to fetch lyrics",
+                            text = lyricsStatus.message,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center

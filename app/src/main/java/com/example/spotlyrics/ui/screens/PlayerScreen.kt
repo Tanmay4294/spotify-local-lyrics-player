@@ -26,7 +26,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.spotlyrics.lyrics.LyricsStatus
 import com.example.spotlyrics.spotify.SpotifyConnectionState
 import com.example.spotlyrics.ui.PlayerViewModel
 import com.example.spotlyrics.ui.components.AlbumArtwork
@@ -44,10 +43,12 @@ fun PlayerScreen(
     val connectionState by viewModel.connectionState.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
     val lyricsStatus by viewModel.lyricsStatus.collectAsState()
+    val artworkBitmap by viewModel.artworkBitmap.collectAsState()
 
     val currentTrack = playerState?.track
     val isConnected = connectionState is SpotifyConnectionState.Connected
     val isPlaying = playerState?.isPlaying ?: false
+    val positionMs = playerState?.playbackPositionMs ?: 0L
 
     Column(
         modifier = modifier
@@ -63,7 +64,7 @@ fun PlayerScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Center Area: Main Content Box (Handling the 8 states)
+        // Center Area: Main Content Box (Handling 8 states)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -86,7 +87,10 @@ fun PlayerScreen(
                                 .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            AlbumArtwork(modifier = Modifier.size(140.dp))
+                            AlbumArtwork(
+                                bitmap = artworkBitmap,
+                                modifier = Modifier.size(140.dp)
+                            )
                             Spacer(modifier = Modifier.height(20.dp))
                             Text(
                                 text = "Spotify Disconnected",
@@ -169,7 +173,10 @@ fun PlayerScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            AlbumArtwork(modifier = Modifier.size(160.dp))
+                            AlbumArtwork(
+                                bitmap = artworkBitmap,
+                                modifier = Modifier.size(160.dp)
+                            )
                             Spacer(modifier = Modifier.height(20.dp))
                             Text(
                                 text = "Waiting for a song...",
@@ -185,14 +192,12 @@ fun PlayerScreen(
                             )
                         }
                     } else {
-                        // States 4, 5, 6, 8: Track is active. Render LyricsContent
-                        // State 4: Track + Lyrics Loading
-                        // State 5: Track + Lyrics Found
-                        // State 6: Track + No Lyrics
-                        // State 8: Lyrics Provider Error
+                        // States 4, 5, 6, 8: Active Track
                         LyricsContent(
                             lyricsStatus = lyricsStatus,
+                            positionMs = positionMs,
                             track = currentTrack,
+                            artworkBitmap = artworkBitmap,
                             onRetry = { viewModel.retryLyrics() },
                             modifier = Modifier.fillMaxSize()
                         )
