@@ -42,11 +42,17 @@ class SpotifyManager private constructor() {
     private val _connectionState = MutableStateFlow<SpotifyConnectionState>(SpotifyConnectionState.Disconnected)
     val connectionState: StateFlow<SpotifyConnectionState> = _connectionState.asStateFlow()
 
+    private val _authState = MutableStateFlow<SpotifyAuthState>(SpotifyAuthState.REAUTH_REQUIRED)
+    val authState: StateFlow<SpotifyAuthState> = _authState.asStateFlow()
+
     private val _playerState = MutableStateFlow<SpotifyPlayerState?>(null)
     val playerState: StateFlow<SpotifyPlayerState?> = _playerState.asStateFlow()
 
     private val _artworkBitmap = MutableStateFlow<android.graphics.Bitmap?>(null)
     val artworkBitmap: StateFlow<android.graphics.Bitmap?> = _artworkBitmap.asStateFlow()
+
+    private var retryCount = 0
+    private val MAX_RETRIES = 3
 
     fun observePlayerState(): StateFlow<SpotifyPlayerState> {
         return _playerState
@@ -65,10 +71,54 @@ class SpotifyManager private constructor() {
 
     fun isConnected(): Boolean = _connectionState.value == SpotifyConnectionState.Connected
 
+    fun runSelfTest(): SpotifySelfTestResult {
+        val isConn = isConnected()
+        val currentState = _playerState.value
+        val playerOk = currentState != null
+
+        if (!isConn) {
+            com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("SpotifySelfTest", "Connection unavailable")
+            return SpotifySelfTestResult(
+                success = false,
+                connectionOk = false,
+                playerStateOk = playerOk,
+                message = "Spotify App Remote is disconnected."
+            )
+        }
+
+        val msg = if (playerOk) {
+            "Connected to Spotify and player state is active."
+        } else {
+            "Connected to Spotify but player state is currently null (no active track)."
+        }
+
+        com.example.spotlyrics.diagnostics.HealthMonitor.recordSuccess("SpotifySelfTest", msg)
+        return SpotifySelfTestResult(
+            success = true,
+            connectionOk = true,
+            playerStateOk = playerOk,
+            message = msg
+        )
+    }
+
+    fun reconnect(context: Context) {
+        retryCount = 0
+        disconnect()
+        connect(context)
+    }
+
     fun connect(context: Context) {
         val clientId = BuildConfig.SPOTIFY_CLIENT_ID
         if (clientId.isBlank()) {
             _connectionState.value = SpotifyConnectionState.Error("Spotify Client ID missing in local.properties")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
+            return
+        }
+
+        if (retryCount >= MAX_RETRIES) {
+            Log.w(TAG, "Max connection retry limit reached. User action required to reconnect.")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
+            _connectionState.value = SpotifyConnectionState.Error("Max reconnect retries reached. Tap Reconnect Spotify.")
             return
         }
 
@@ -91,7 +141,9 @@ class SpotifyManager private constructor() {
             object : Connector.ConnectionListener {
                 override fun onConnected(appRemote: SpotifyAppRemote) {
                     spotifyAppRemote = appRemote
+                    retryCount = 0
                     _connectionState.value = SpotifyConnectionState.Connected
+                    _authState.value = SpotifyAuthState.VALID
                     Log.d(TAG, "Successfully connected to Spotify App Remote")
 
                     // Record successful Spotify auth and App Remote connection
@@ -103,10 +155,14 @@ class SpotifyManager private constructor() {
 
                 override fun onFailure(throwable: Throwable) {
                     spotifyAppRemote = null
+                    retryCount++
                     val errorMsg = parseConnectionError(throwable)
                     _connectionState.value = SpotifyConnectionState.Error(errorMsg)
+                    val classifiedAuth = classifyAuthFailure(throwable)
+                    _authState.value = classifiedAuth
+
                     // Record failure for Spotify authentication/App Remote connection
-                    com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("SpotifyAuth", "Connection failed: $errorMsg")
+                    com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("SpotifyAuth", "Connection failed: $errorMsg ($classifiedAuth)")
                     com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("AppRemote", "Connection failed: $errorMsg")
                     Log.e(TAG, "App Remote connection failed: $errorMsg", throwable)
                 }
@@ -239,6 +295,23 @@ class SpotifyManager private constructor() {
                     "Spotify app is not installed on this device"
                 } else {
                     "Failed to connect to Spotify app: $msg"
+                }
+            }
+        }
+    }
+
+    fun classifyAuthFailure(throwable: Throwable): SpotifyAuthState {
+        return when (throwable) {
+            is UserNotAuthorizedException -> SpotifyAuthState.AUTH_REVOKED
+            is NotLoggedInException -> SpotifyAuthState.REAUTH_REQUIRED
+            else -> {
+                val msg = throwable.localizedMessage ?: ""
+                if (msg.contains("expired", ignoreCase = true)) {
+                    SpotifyAuthState.ACCESS_TOKEN_EXPIRED
+                } else if (msg.contains("refresh", ignoreCase = true)) {
+                    SpotifyAuthState.REFRESH_FAILED
+                } else {
+                    SpotifyAuthState.REAUTH_REQUIRED
                 }
             }
         }

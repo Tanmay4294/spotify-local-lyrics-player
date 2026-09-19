@@ -3,6 +3,7 @@ package com.example.spotlyrics.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +50,10 @@ fun PlayerScreen(
     val isConnected = connectionState is SpotifyConnectionState.Connected
     val isPlaying = playerState?.isPlaying ?: false
     val positionMs = playerState?.playbackPositionMs ?: 0L
+
+    val (showDiagnostics, setShowDiagnostics) = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
 
     Column(
         modifier = modifier
@@ -222,12 +227,26 @@ fun PlayerScreen(
                 onSkipPrevious = { viewModel.skipPrevious() }
             )
 
-            if (isConnected) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(onClick = { viewModel.disconnect() }) {
-                    Text("Disconnect Spotify")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isConnected) {
+                    OutlinedButton(onClick = { viewModel.disconnect() }) {
+                        Text("Disconnect")
+                    }
+                }
+                OutlinedButton(onClick = { setShowDiagnostics(true) }) {
+                    Text("Diagnostics")
                 }
             }
         }
+    }
+
+    if (showDiagnostics) {
+        DiagnosticsDialog(
+            viewModel = viewModel,
+            onDismiss = { setShowDiagnostics(false) }
+        )
     }
 }

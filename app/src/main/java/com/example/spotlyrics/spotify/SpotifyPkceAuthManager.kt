@@ -36,7 +36,7 @@ class SpotifyPkceAuthManager private constructor(
         }
     }
 
-    private val _authState = MutableStateFlow<SpotifyAuthState>(SpotifyAuthState.SignedOut)
+    private val _authState = MutableStateFlow<SpotifyAuthState>(SpotifyAuthState.REAUTH_REQUIRED)
     val authState: StateFlow<SpotifyAuthState> = _authState.asStateFlow()
 
     private val refreshMutex = Mutex()
@@ -48,16 +48,16 @@ class SpotifyPkceAuthManager private constructor(
     private fun checkInitialAuthState() {
         val storedToken = storage.get()
         if (storedToken != null) {
-            _authState.value = SpotifyAuthState.Authorized(storedToken.expiresAtEpochSeconds)
+            _authState.value = SpotifyAuthState.VALID
         } else {
-            _authState.value = SpotifyAuthState.SignedOut
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
         }
     }
 
     fun startAuthorization(context: Context) {
         val clientId = BuildConfig.SPOTIFY_CLIENT_ID
         if (clientId.isBlank()) {
-            _authState.value = SpotifyAuthState.Error("Spotify Client ID is missing in local.properties")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             return
         }
 
@@ -75,53 +75,53 @@ class SpotifyPkceAuthManager private constructor(
                 .appendQueryParameter("code_challenge", challenge)
                 .build()
 
-            _authState.value = SpotifyAuthState.Authorizing
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
 
             val intent = Intent(Intent.ACTION_VIEW, authUri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            _authState.value = SpotifyAuthState.Error("Failed to start authorization: ${e.localizedMessage}")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
         }
     }
 
     fun handleCallback(intent: Intent, scope: CoroutineScope) {
         val uri = intent.data ?: run {
-            _authState.value = SpotifyAuthState.Error("Missing callback URI")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             return
         }
 
         val scheme = uri.scheme
         val host = uri.host
         if (scheme != "spotlyrics" || host != "callback") {
-            _authState.value = SpotifyAuthState.Error("Invalid redirect callback")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             return
         }
 
         val error = uri.getQueryParameter("error")
         if (error != null) {
             storage.clearCodeVerifier()
-            _authState.value = SpotifyAuthState.Error("Authorization error: $error")
+            _authState.value = SpotifyAuthState.AUTH_REVOKED
             return
         }
 
         val code = uri.getQueryParameter("code")
         if (code.isNullOrBlank()) {
             storage.clearCodeVerifier()
-            _authState.value = SpotifyAuthState.Error("Missing authorization code")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             return
         }
 
         val verifier = storage.getCodeVerifier()
         storage.clearCodeVerifier()
         if (verifier.isNullOrEmpty()) {
-            _authState.value = SpotifyAuthState.Error("Missing PKCE code verifier")
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             return
         }
 
         val clientId = BuildConfig.SPOTIFY_CLIENT_ID
-        _authState.value = SpotifyAuthState.ExchangingCode
+        _authState.value = SpotifyAuthState.REAUTH_REQUIRED
 
         scope.launch {
             val result = tokenApi.exchangeCodeForToken(
@@ -132,22 +132,24 @@ class SpotifyPkceAuthManager private constructor(
             )
             result.onSuccess { token ->
                 storage.save(token)
-                _authState.value = SpotifyAuthState.Authorized(token.expiresAtEpochSeconds)
-            }.onFailure { exception ->
-                _authState.value = SpotifyAuthState.Error("Token exchange failed: ${exception.message}")
+                _authState.value = SpotifyAuthState.VALID
+            }.onFailure {
+                _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             }
         }
     }
 
     suspend fun getValidAccessToken(): String? = refreshMutex.withLock {
         val storedToken = storage.get() ?: run {
-            _authState.value = SpotifyAuthState.SignedOut
+            _authState.value = SpotifyAuthState.REAUTH_REQUIRED
             return null
         }
 
         if (!storedToken.isExpired()) {
             return storedToken.accessToken
         }
+
+        _authState.value = SpotifyAuthState.ACCESS_TOKEN_EXPIRED
 
         val refreshToken = storedToken.refreshToken
         if (refreshToken.isNullOrEmpty()) {
@@ -161,10 +163,11 @@ class SpotifyPkceAuthManager private constructor(
         return refreshResult.fold(
             onSuccess = { newToken ->
                 storage.save(newToken)
-                _authState.value = SpotifyAuthState.Authorized(newToken.expiresAtEpochSeconds)
+                _authState.value = SpotifyAuthState.VALID
                 newToken.accessToken
             },
             onFailure = {
+                _authState.value = SpotifyAuthState.REFRESH_FAILED
                 signOut()
                 null
             }
@@ -174,6 +177,6 @@ class SpotifyPkceAuthManager private constructor(
     fun signOut() {
         storage.clear()
         storage.clearCodeVerifier()
-        _authState.value = SpotifyAuthState.SignedOut
+        _authState.value = SpotifyAuthState.REAUTH_REQUIRED
     }
 }

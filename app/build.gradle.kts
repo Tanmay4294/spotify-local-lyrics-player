@@ -52,6 +52,10 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     room {
         schemaDirectory("$projectDir/schemas")
     }

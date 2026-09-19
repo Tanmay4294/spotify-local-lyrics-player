@@ -64,12 +64,25 @@ class PlayerViewModel(
         }
     }
 
+    val authState: StateFlow<com.example.spotlyrics.spotify.SpotifyAuthState> = spotifyManager.authState
+
+    private val _selfTestResult = MutableStateFlow<com.example.spotlyrics.spotify.SpotifySelfTestResult?>(null)
+    val selfTestResult: StateFlow<com.example.spotlyrics.spotify.SpotifySelfTestResult?> = _selfTestResult
+
     fun connect() {
         spotifyManager.connect(context)
     }
 
     fun disconnect() {
         spotifyManager.disconnect()
+    }
+
+    fun reconnect() {
+        spotifyManager.reconnect(context)
+    }
+
+    fun runSpotifySelfTest() {
+        _selfTestResult.value = spotifyManager.runSelfTest()
     }
 
     @Deprecated("Use connect() instead. Kept for backward compatibility.")
