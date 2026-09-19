@@ -284,6 +284,21 @@ class SpotifyManager private constructor() {
             }
         }
     }
+    // Seek to specific position within track
+    fun seekTo(positionMs: Long) {
+        val remote = spotifyAppRemote
+        if (remote == null) {
+            Log.w(TAG, "Cannot seek: Spotify App Remote not connected")
+            return
+        }
+        remote.playerApi.seekTo(positionMs).setResultCallback { result ->
+            if (result != null) {
+                Log.d(TAG, "Seek to $positionMs succeeded")
+            } else {
+                Log.e(TAG, "Seek command failed: null result")
+            }
+        }
+    }
 
     private fun parseConnectionError(throwable: Throwable): String {
         return when (throwable) {

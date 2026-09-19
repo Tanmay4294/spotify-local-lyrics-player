@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
+import android.os.SystemClock
 
 class PlayerViewModel(
     private val context: Context,
@@ -33,6 +36,20 @@ class PlayerViewModel(
 
     private val _playerState = MutableStateFlow<SpotifyPlayerState?>(null)
     private var previousTrackId: String? = null
+
+    // Playback anchor for local timer
+    private data class PlaybackAnchor(
+        val positionMs: Long,
+        val anchorRealtimeMs: Long,
+        val speed: Float = 1f,
+        val isPaused: Boolean,
+        val trackId: String?,
+        val durationMs: Long
+    )
+
+    private var playbackAnchor: PlaybackAnchor? = null
+    private val _currentPositionMs = MutableStateFlow<Long>(0L)
+    val currentPositionMs: StateFlow<Long> = _currentPositionMs.asStateFlow()
     val playerState: StateFlow<SpotifyPlayerState?> = _playerState
 
     val artworkBitmap: StateFlow<android.graphics.Bitmap?> = spotifyManager.artworkBitmap
@@ -41,6 +58,79 @@ class PlayerViewModel(
 
     init {
         observeSpotify()
+        startPositionTicker()
+    }
+
+
+    // Start a ticker that updates synthetic playback position based on the anchor
+    private fun startPositionTicker() {
+        viewModelScope.launch {
+            while (true) {
+                delay(200L)
+                val anchor = playbackAnchor ?: continue
+                val pos = if (anchor.isPaused) {
+                    anchor.positionMs
+                } else {
+                    anchor.positionMs + ((SystemClock.elapsedRealtime() - anchor.anchorRealtimeMs) * anchor.speed).toLong()
+                }
+                // Clamp position to [0, duration]
+                _currentPositionMs.value = pos.coerceIn(0L, anchor.durationMs)
+            }
+        }
+    }
+
+    // Expose seek operation to UI
+    fun seekTo(positionMs: Long) {
+        spotifyManager.seekTo(positionMs)
+        // Reset anchor after seeking
+        playbackAnchor = playbackAnchor?.copy(
+            positionMs = positionMs,
+            anchorRealtimeMs = SystemClock.elapsedRealtime()
+        )
+    }
+
+    // Update anchor based on incoming player state
+    private fun updateAnchorFromState(state: com.example.spotlyrics.spotify.SpotifyPlayerState?) {
+        val newTrackId = state?.track?.id
+        val isPlaying = state?.isPlaying ?: false
+        val speed = 1f // Assume normal speed
+        val position = state?.playbackPositionMs ?: 0L
+        val duration = state?.durationMs ?: 0L
+        
+        if (newTrackId != previousTrackId) {
+            // Track changed – reset anchor (including null track)
+            if (newTrackId != null) {
+                playbackAnchor = PlaybackAnchor(
+                    positionMs = position,
+                    anchorRealtimeMs = SystemClock.elapsedRealtime(),
+                    speed = speed,
+                    isPaused = !isPlaying,
+                    trackId = newTrackId,
+                    durationMs = duration
+                )
+            } else {
+                // No track - clear anchor and reset position
+                playbackAnchor = null
+                _currentPositionMs.value = 0L
+            }
+        } else {
+            // Same track – possibly pause/play or seek happened
+            playbackAnchor?.let { anchor ->
+                val expected = if (!anchor.isPaused) {
+                    anchor.positionMs + ((SystemClock.elapsedRealtime() - anchor.anchorRealtimeMs) * anchor.speed).toLong()
+                } else {
+                    anchor.positionMs
+                }
+                if (kotlin.math.abs(position - expected) > 2000L || anchor.isPaused != !isPlaying) {
+                    playbackAnchor = anchor.copy(
+                        positionMs = position,
+                        anchorRealtimeMs = SystemClock.elapsedRealtime(),
+                        isPaused = !isPlaying,
+                        durationMs = duration
+                    )
+                }
+            }
+        }
     }
 
     private fun observeSpotify() {
@@ -53,13 +143,15 @@ class PlayerViewModel(
         viewModelScope.launch {
             spotifyManager.playerState.collect { state ->
                 _playerState.value = state
+                // Update anchor based on new player state
+                updateAnchorFromState(state)
                 val newTrackId = state?.track?.id
                 if (newTrackId != previousTrackId) {
                     previousTrackId = newTrackId
                     // Trigger lyrics loading only on track change (including null)
                     lyricsManager.onTrackChanged(state?.track)
                 }
-                // If same track, do not call lyricsManager again; UI updates via playerState flow
+                // If same track, UI updates via playerState flow
             }
         }
     }

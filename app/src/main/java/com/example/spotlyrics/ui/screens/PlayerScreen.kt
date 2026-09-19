@@ -18,9 +18,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -49,7 +52,25 @@ fun PlayerScreen(
     val currentTrack = playerState?.track
     val isConnected = connectionState is SpotifyConnectionState.Connected
     val isPlaying = playerState?.isPlaying ?: false
-    val positionMs = playerState?.playbackPositionMs ?: 0L
+    // Collect synthetic playback position from ViewModel
+    val currentPositionMs by viewModel.currentPositionMs.collectAsState()
+    // Track duration for slider range
+    val durationMs = playerState?.durationMs ?: 0L
+    // Use position for lyrics content
+    val lyricsPositionMs = currentPositionMs
+    // Slider drag state
+    val dragPositionMs = remember { mutableStateOf<Long?>(null) }
+    // Time formatting helper (simple mm:ss)
+    fun formatMs(ms: Long): String {
+        val totalSeconds = (ms / 1000).toInt()
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return "%d:%02d".format(minutes, seconds)
+    }
+    
+    // In UI, after LyricsContent (replace positionMs with lyricsPositionMs) add Slider
+    // We'll modify the LyricsContent call later.
+
 
     val (showDiagnostics, setShowDiagnostics) = androidx.compose.runtime.remember {
         androidx.compose.runtime.mutableStateOf(false)
@@ -198,14 +219,37 @@ fun PlayerScreen(
                         }
                     } else {
                         // States 4, 5, 6, 8: Active Track
+                        // Use synthetic playback position for lyrics
                         LyricsContent(
                             lyricsStatus = lyricsStatus,
-                            positionMs = positionMs,
+                            positionMs = lyricsPositionMs,
                             track = currentTrack,
                             artworkBitmap = artworkBitmap,
                             onRetry = { viewModel.retryLyrics() },
                             modifier = Modifier.fillMaxSize()
                         )
+                        // Progress slider
+                        if (durationMs > 0L) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Slider(
+                                    value = (dragPositionMs.value ?: currentPositionMs).toFloat(),
+                                    onValueChange = { v -> dragPositionMs.value = v.toLong() },
+                                    onValueChangeFinished = {
+                                        viewModel.seekTo(dragPositionMs.value ?: currentPositionMs)
+                                        dragPositionMs.value = null
+                                    },
+                                    valueRange = 0f..durationMs.toFloat(),
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = formatMs(dragPositionMs.value ?: currentPositionMs))
+                                    Text(text = formatMs(durationMs))
+                                }
+                            }
+                        }
                     }
                 }
             }
