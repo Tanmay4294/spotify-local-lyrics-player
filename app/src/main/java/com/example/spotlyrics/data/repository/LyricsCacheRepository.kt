@@ -11,8 +11,14 @@ class LyricsCacheRepository(private val dao: LyricsCacheDao) {
 
     suspend fun getCachedLyrics(track: SpotifyTrack): LyricsResult? {
         val cacheKey = LyricsCacheKey.generate(track)
-        val entity = dao.getByCacheKey(cacheKey).first()
-        return entity?.toLyricsResult()
+        return try {
+            val entity = dao.getByCacheKey(cacheKey).first()
+            com.example.spotlyrics.diagnostics.HealthMonitor.recordSuccess("CacheDB", "Read success")
+            entity?.toLyricsResult()
+        } catch (e: Exception) {
+            com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("CacheDB", "Read failure: ${e.message}")
+            null
+        }
     }
 
     suspend fun saveLyrics(track: SpotifyTrack, result: LyricsResult) {
@@ -28,7 +34,12 @@ class LyricsCacheRepository(private val dao: LyricsCacheDao) {
             syncedLyrics = result.syncedText,
             fetchedAt = System.currentTimeMillis()
         )
-        dao.insertOrReplace(entity)
+        try {
+            dao.insertOrReplace(entity)
+            com.example.spotlyrics.diagnostics.HealthMonitor.recordSuccess("CacheDB", "Write success")
+        } catch (e: Exception) {
+            com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("CacheDB", "Write failure: ${e.message}")
+        }
     }
 }
 

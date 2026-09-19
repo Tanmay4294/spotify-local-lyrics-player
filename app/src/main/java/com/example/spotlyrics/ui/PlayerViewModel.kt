@@ -32,6 +32,7 @@ class PlayerViewModel(
     val connectionState: StateFlow<SpotifyConnectionState> = _connectionState
 
     private val _playerState = MutableStateFlow<SpotifyPlayerState?>(null)
+    private var previousTrackId: String? = null
     val playerState: StateFlow<SpotifyPlayerState?> = _playerState
 
     val artworkBitmap: StateFlow<android.graphics.Bitmap?> = spotifyManager.artworkBitmap
@@ -52,15 +53,31 @@ class PlayerViewModel(
         viewModelScope.launch {
             spotifyManager.playerState.collect { state ->
                 _playerState.value = state
-                lyricsManager.onTrackChanged(state?.track)
+                val newTrackId = state?.track?.id
+                if (newTrackId != previousTrackId) {
+                    previousTrackId = newTrackId
+                    // Trigger lyrics loading only on track change (including null)
+                    lyricsManager.onTrackChanged(state?.track)
+                }
+                // If same track, do not call lyricsManager again; UI updates via playerState flow
             }
         }
     }
 
+    fun connect() {
+        spotifyManager.connect(context)
+    }
+
+    fun disconnect() {
+        spotifyManager.disconnect()
+    }
+
+    @Deprecated("Use connect() instead. Kept for backward compatibility.")
     fun connectSpotify(context: android.content.Context) {
         spotifyManager.connect(context)
     }
 
+    @Deprecated("Use disconnect() instead. Kept for backward compatibility.")
     fun disconnectSpotify() {
         spotifyManager.disconnect()
     }

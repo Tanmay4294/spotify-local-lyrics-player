@@ -56,49 +56,148 @@ class LrcLibProvider : LyricsProvider {
         connection.readTimeout = 10000
         connection.requestMethod = "GET"
 
-        try {
-            val responseCode = connection.responseCode
+                try {
+                    // Record network availability before making request
+                com.example.spotlyrics.diagnostics.NetworkMonitor.recordNetworkStatus()
+                val responseCode = connection.responseCode
 
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                return@withContext handleErrorResponse(responseCode)
-            }
+                    // Record HTTP response code
+                    if (responseCode != HttpURLConnection.HTTP_OK) {
+                        // Record failure for provider
+                        com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                            com.example.spotlyrics.diagnostics.ProviderHealth(
+                                provider = "LRCLIB",
+                                healthy = false,
+                                lastSuccessAt = null,
+                                lastFailureAt = System.currentTimeMillis(),
+                                lastHttpCode = responseCode,
+                                lastError = "Non-OK HTTP response"
+                            )
+                        )
+                        return@withContext handleErrorResponse(responseCode)
+                    }
 
-            val reader = BufferedReader(InputStreamReader(connection.inputStream, StandardCharsets.UTF_8))
-            val responseBody = reader.use { it.readText() }
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream, StandardCharsets.UTF_8))
+                    val responseBody = reader.use { it.readText() }
 
-            val results = gson.fromJson(responseBody, Array<LrcLibSearchResponse>::class.java)
+                    val results = gson.fromJson(responseBody, Array<LrcLibSearchResponse>::class.java)
 
-            if (results.isEmpty()) {
-                return@withContext null
-            }
+                    if (results.isEmpty()) {
+                        // Record failure - empty results
+                        com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                            com.example.spotlyrics.diagnostics.ProviderHealth(
+                                provider = "LRCLIB",
+                                healthy = false,
+                                lastSuccessAt = null,
+                                lastFailureAt = System.currentTimeMillis(),
+                                lastHttpCode = HttpURLConnection.HTTP_OK,
+                                lastError = "Empty results"
+                            )
+                        )
+                        return@withContext null
+                    }
 
-            val match = findBestMatch(results, title, artist, album, durationSeconds)
-                ?: return@withContext null
+                    val match = findBestMatch(results, title, artist, album, durationSeconds)
+                        ?: run {
+                            com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                                com.example.spotlyrics.diagnostics.ProviderHealth(
+                                    provider = "LRCLIB",
+                                    healthy = false,
+                                    lastSuccessAt = null,
+                                    lastFailureAt = System.currentTimeMillis(),
+                                    lastHttpCode = HttpURLConnection.HTTP_OK,
+                                    lastError = "No matching track"
+                                )
+                            )
+                            return@withContext null
+                        }
 
-            val validatedSynced = validateSyncedLyrics(match.syncedLyrics)
+                    val validatedSynced = validateSyncedLyrics(match.syncedLyrics)
 
-            if (match.plainLyrics.isNullOrBlank() && validatedSynced == null) {
-                return@withContext null
-            }
+                    if (match.plainLyrics.isNullOrBlank() && validatedSynced == null) {
+                        com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                            com.example.spotlyrics.diagnostics.ProviderHealth(
+                                provider = "LRCLIB",
+                                healthy = false,
+                                lastSuccessAt = null,
+                                lastFailureAt = System.currentTimeMillis(),
+                                lastHttpCode = HttpURLConnection.HTTP_OK,
+                                lastError = "Missing lyrics content"
+                            )
+                        )
+                        return@withContext null
+                    }
 
-            LyricsResult(
-                source = "lrclib",
-                plainText = match.plainLyrics?.takeIf { it.isNotBlank() },
-                syncedText = validatedSynced,
-                durationSeconds = match.duration,
-                found = true
-            )
-        } catch (e: java.net.SocketTimeoutException) {
-            null
-        } catch (e: java.io.IOException) {
-            null
-        } catch (e: com.google.gson.JsonSyntaxException) {
-            null
-        } catch (e: Exception) {
-            null
-        } finally {
-            connection.disconnect()
-        }
+                    // Successful result
+                    com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                        com.example.spotlyrics.diagnostics.ProviderHealth(
+                            provider = "LRCLIB",
+                            healthy = true,
+                            lastSuccessAt = System.currentTimeMillis(),
+                            lastFailureAt = null,
+                            lastHttpCode = HttpURLConnection.HTTP_OK,
+                            lastError = null
+                        )
+                    )
+
+                    LyricsResult(
+                        source = "lrclib",
+                        plainText = match.plainLyrics?.takeIf { it.isNotBlank() },
+                        syncedText = validatedSynced,
+                        durationSeconds = match.duration,
+                        found = true
+                    )
+                } catch (e: java.net.SocketTimeoutException) {
+                    com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                        com.example.spotlyrics.diagnostics.ProviderHealth(
+                            provider = "LRCLIB",
+                            healthy = false,
+                            lastSuccessAt = null,
+                            lastFailureAt = System.currentTimeMillis(),
+                            lastHttpCode = null,
+                            lastError = "Timeout: ${e.message}"
+                        )
+                    )
+                    null
+                } catch (e: java.io.IOException) {
+                    com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                        com.example.spotlyrics.diagnostics.ProviderHealth(
+                            provider = "LRCLIB",
+                            healthy = false,
+                            lastSuccessAt = null,
+                            lastFailureAt = System.currentTimeMillis(),
+                            lastHttpCode = null,
+                            lastError = "IO error: ${e.message}"
+                        )
+                    )
+                    null
+                } catch (e: com.google.gson.JsonSyntaxException) {
+                    com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                        com.example.spotlyrics.diagnostics.ProviderHealth(
+                            provider = "LRCLIB",
+                            healthy = false,
+                            lastSuccessAt = null,
+                            lastFailureAt = System.currentTimeMillis(),
+                            lastHttpCode = null,
+                            lastError = "JSON parse error: ${e.message}"
+                        )
+                    )
+                    null
+                } catch (e: Exception) {
+                    com.example.spotlyrics.diagnostics.HealthMonitor.updateProviderHealth(
+                        com.example.spotlyrics.diagnostics.ProviderHealth(
+                            provider = "LRCLIB",
+                            healthy = false,
+                            lastSuccessAt = null,
+                            lastFailureAt = System.currentTimeMillis(),
+                            lastHttpCode = null,
+                            lastError = "Unexpected error: ${e.message}"
+                        )
+                    )
+                    null
+                } finally {
+                    connection.disconnect()
+                }
     }
 
     private fun handleErrorResponse(responseCode: Int): LyricsResult? {

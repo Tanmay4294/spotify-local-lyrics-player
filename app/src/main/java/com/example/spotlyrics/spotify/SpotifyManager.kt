@@ -94,6 +94,10 @@ class SpotifyManager private constructor() {
                     _connectionState.value = SpotifyConnectionState.Connected
                     Log.d(TAG, "Successfully connected to Spotify App Remote")
 
+                    // Record successful Spotify auth and App Remote connection
+                    com.example.spotlyrics.diagnostics.HealthMonitor.recordSuccess("SpotifyAuth", "Connected")
+                    com.example.spotlyrics.diagnostics.HealthMonitor.recordSuccess("AppRemote", "Connected")
+
                     subscribeToPlayerState()
                 }
 
@@ -101,6 +105,9 @@ class SpotifyManager private constructor() {
                     spotifyAppRemote = null
                     val errorMsg = parseConnectionError(throwable)
                     _connectionState.value = SpotifyConnectionState.Error(errorMsg)
+                    // Record failure for Spotify authentication/App Remote connection
+                    com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("SpotifyAuth", "Connection failed: $errorMsg")
+                    com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("AppRemote", "Connection failed: $errorMsg")
                     Log.e(TAG, "App Remote connection failed: $errorMsg", throwable)
                 }
             }
@@ -125,6 +132,8 @@ class SpotifyManager private constructor() {
                     )
                 }
 
+                // Record successful reception of PlayerState (even if track is null)
+                com.example.spotlyrics.diagnostics.HealthMonitor.recordSuccess("PlayerState", "Received")
                 _playerState.value = newMappedState
 
                 val imageUri = sdkState.track?.imageUri
@@ -138,6 +147,7 @@ class SpotifyManager private constructor() {
             }
             .setErrorCallback { throwable ->
                 Log.e(TAG, "PlayerState subscription error: ${throwable.localizedMessage}", throwable)
+                com.example.spotlyrics.diagnostics.HealthMonitor.recordFailure("PlayerState", "Subscription error: ${throwable.localizedMessage}")
             }
     }
 

@@ -105,7 +105,7 @@ fun PlayerScreen(
                                 textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(20.dp))
-                            Button(onClick = { viewModel.connectSpotify(context) }) {
+                            Button(onClick = { viewModel.connect() }) {
                                 Text("Connect to Spotify")
                             }
                         }
@@ -159,7 +159,7 @@ fun PlayerScreen(
                                 textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = { viewModel.connectSpotify(context) }) {
+                            Button(onClick = { viewModel.connect() }) {
                                 Text("Reconnect")
                             }
                         }
@@ -224,7 +224,7 @@ fun PlayerScreen(
 
             if (isConnected) {
                 Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(onClick = { viewModel.disconnectSpotify() }) {
+                OutlinedButton(onClick = { viewModel.disconnect() }) {
                     Text("Disconnect Spotify")
                 }
             }
