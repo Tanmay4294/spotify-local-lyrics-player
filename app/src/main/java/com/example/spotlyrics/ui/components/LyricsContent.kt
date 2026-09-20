@@ -134,50 +134,38 @@ fun LyricsContent(
                         }
                         is LyricsStatus.Found -> {
                             val lyrics = lyricsStatus.lyrics
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Text(
-                                    text = "Lyrics • ${lyrics.source}",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.SemiBold
-                                    ),
-                                    color = MaterialTheme.colorScheme.primary
+                            if (lyrics.lyricLines.isNotEmpty()) {
+                                SyncedLyrics(
+                                    lines = lyrics.lyricLines,
+                                    positionMs = positionMs,
+                                    modifier = modifier.fillMaxSize()
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                if (lyrics.lyricLines.isNotEmpty()) {
-                                    SyncedLyrics(
-                                        lines = lyrics.lyricLines,
-                                        positionMs = positionMs,
-                                        modifier = Modifier.weight(1f)
+                            } else if (!lyrics.plainText.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .lyricsFadeMask()
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    Text(
+                                        text = lyrics.plainText,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            lineHeight = 26.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
                                     )
-                                } else if (!lyrics.plainText.isNullOrBlank()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxWidth()
-                                            .lyricsFadeMask()
-                                            .verticalScroll(rememberScrollState())
-                                    ) {
-                                        Text(
-                                            text = lyrics.plainText,
-                                            style = MaterialTheme.typography.bodyLarge.copy(
-                                                lineHeight = 26.sp
-                                            ),
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
-                                        )
-                                    }
-                                } else {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "No lyrics content available",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                        )
-                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No lyrics content available",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
                                 }
                             }
                         }
