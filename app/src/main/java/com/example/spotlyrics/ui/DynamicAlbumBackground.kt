@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -76,7 +77,7 @@ fun DynamicAlbumBackground(
             Image(
                 bitmap = prevBmp,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = 1f - alphaAnim.value }
@@ -88,7 +89,7 @@ fun DynamicAlbumBackground(
             Image(
                 bitmap = currBmp,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = alphaAnim.value }
@@ -105,7 +106,7 @@ fun DynamicAlbumBackground(
 }
 
 /**
- * Creates a blurred background bitmap scaled to fill the entire screen.
+ * Creates a blurred background bitmap with conservative scaling (less zoomed).
  * Runs on IO thread to avoid blocking UI.
  */
 private fun createBlurredBackgroundBitmap(context: Context, bitmap: Bitmap): ImageBitmap {
@@ -116,21 +117,18 @@ private fun createBlurredBackgroundBitmap(context: Context, bitmap: Bitmap): Ima
     val screenWidth = metrics.widthPixels
     val screenHeight = metrics.heightPixels
 
-    // Scale bitmap to fill screen (crop to aspect ratio)
-    val sourceAspect = bitmap.width.toFloat() / bitmap.height
-    val screenAspect = screenWidth.toFloat() / screenHeight
+    // Calculate fit scale (entire artwork visible) and cover scale (screen filled)
+    val fitScale = min(screenWidth.toFloat() / bitmap.width, screenHeight.toFloat() / bitmap.height)
+    val coverScale = max(screenWidth.toFloat() / bitmap.width, screenHeight.toFloat() / bitmap.height)
 
-    val (scaledWidth, scaledHeight) = if (sourceAspect > screenAspect) {
-        // Source is wider - scale by height
-        val h = screenHeight
-        val w = (h * sourceAspect).toInt()
-        w to h
-    } else {
-        // Source is taller - scale by width
-        val w = screenWidth
-        val h = (w / sourceAspect).toInt()
-        w to h
-    }
+    // Use a scale between fit and cover: ~1.20x fit scale for less zoom
+    val targetScale = fitScale * 1.20f
+
+    // Clamp to cover scale as maximum
+    val finalScale = min(targetScale, coverScale)
+
+    val scaledWidth = (bitmap.width * finalScale).toInt()
+    val scaledHeight = (bitmap.height * finalScale).toInt()
 
     // Scale down for faster blur processing (target ~400px on shorter side for quality/performance)
     val blurScale = 400f / min(scaledWidth, scaledHeight)
@@ -147,7 +145,7 @@ private fun createBlurredBackgroundBitmap(context: Context, bitmap: Bitmap): Ima
     val canvas = Canvas(blurred)
     canvas.drawBitmap(scaled, 0f, 0f, paint)
 
-    // Scale back up to screen dimensions
+    // Scale back up to target dimensions
     val result = Bitmap.createScaledBitmap(blurred, scaledWidth, scaledHeight, true)
 
     if (scaled != bitmap && !scaled.isRecycled) scaled.recycle()
