@@ -96,9 +96,9 @@ fun SyncedLyrics(
 
                 val textColor by animateColorAsState(
                     targetValue = if (isActive) {
-                        MaterialTheme.colorScheme.primary
+                        Color.White // active line pure white
                     } else {
-                        MaterialTheme.colorScheme.onSurface
+                        Color.White.copy(alpha = 0.7f) // softer white for other lines
                     },
                     animationSpec = tween(durationMillis = 300),
                     label = "lyricTextColor"

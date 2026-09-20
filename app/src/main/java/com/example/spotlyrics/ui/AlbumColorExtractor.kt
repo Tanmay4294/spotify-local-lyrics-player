@@ -29,10 +29,11 @@ object AlbumColorExtractor {
                         rgb and 0xFF,
                         hsv
                     )
-                    // Clamp saturation and value to avoid neon/bright colors
-                    hsv[1] = hsv[1].coerceAtMost(0.5f) // max 50% saturation
-                    hsv[2] = hsv[2].coerceAtMost(0.4f) // max 40% brightness
-                    // Return opaque color with clamped HSV
+// Increase saturation and brightness for richer Album Color background
+                    // Apply scaling while keeping within reasonable limits
+                    hsv[1] = (hsv[1] * 1.5f).coerceIn(0f, 0.9f) // up to 90% saturation
+                    hsv[2] = (hsv[2] * 1.4f).coerceIn(0f, 0.8f) // up to 80% brightness
+                    // Return opaque color with adjusted HSV
                     android.graphics.Color.HSVToColor(0xFF, hsv)
                 }
             }

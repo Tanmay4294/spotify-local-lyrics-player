@@ -109,11 +109,7 @@ fun PlayerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Spotifly",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = { showSettings = true }) {
                     Icon(
                         imageVector = Icons.Default.Settings,
@@ -160,7 +156,7 @@ fun PlayerScreen(
                         .padding(horizontal = 16.dp)
                         .height(2.dp)
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -179,7 +175,7 @@ fun PlayerScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // 5. Playback controls (Previous, Play/Pause, Next)
             PlaybackControls(
@@ -192,12 +188,7 @@ fun PlayerScreen(
             )
 
             // 6. LYRICS heading
-            Text(
-                text = "LYRICS",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(top = 8.dp),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
+
 
             // 7. Dedicated bounded lyrics viewport
             Box(
