@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.spotlyrics.lyrics.LyricsStatus
+import com.example.spotlyrics.spotify.SpotifyConnectionState
 import com.example.spotlyrics.spotify.SpotifyTrack
 
 @Composable
@@ -35,6 +36,7 @@ fun LyricsContent(
     positionMs: Long,
     track: SpotifyTrack?,
     artworkBitmap: Bitmap? = null,
+    connectionState: SpotifyConnectionState = SpotifyConnectionState.Connected,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -54,130 +56,184 @@ fun LyricsContent(
                 .clipToBounds(),
             contentAlignment = Alignment.Center
         ) {
-            when (lyricsStatus) {
-                is LyricsStatus.Loading -> {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+            when {
+                connectionState is SpotifyConnectionState.Disconnected -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Spotify Disconnected",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Tap Settings (⚙) above to connect to Spotify.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                connectionState is SpotifyConnectionState.Connecting -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(40.dp),
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Searching for lyrics...",
+                            text = "Connecting to Spotify...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-
-                is LyricsStatus.Found -> {
-                    val lyrics = lyricsStatus.lyrics
-                    Column(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
+                connectionState is SpotifyConnectionState.Error -> {
+                    val errorMessage = (connectionState as SpotifyConnectionState.Error).message
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Lyrics • ${lyrics.source}",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = MaterialTheme.colorScheme.primary
+                            text = "Spotify Connection Error",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-
-                        if (lyrics.lyricLines.isNotEmpty()) {
-                            // Synced lyrics view
-                            SyncedLyrics(
-                                lines = lyrics.lyricLines,
-                                positionMs = positionMs,
-                                modifier = Modifier.weight(1f)
-                            )
-                        } else if (!lyrics.plainText.isNullOrBlank()) {
-                            // Plain lyrics fallback view
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .lyricsFadeMask()
-                                    .verticalScroll(rememberScrollState())
-                            ) {
-                                Text(
-                                    text = lyrics.plainText,
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        lineHeight = 26.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
+                        Text(
+                            text = "$errorMessage\nTap Settings (⚙) above for options.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                track == null -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Waiting for a song...",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Play music on Spotify to display lyrics here.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                else -> {
+                    when (lyricsStatus) {
+                        is LyricsStatus.Loading -> {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(40.dp),
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "No lyrics content available",
+                                    text = "Searching for lyrics...",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                    }
-                }
+                        is LyricsStatus.Found -> {
+                            val lyrics = lyricsStatus.lyrics
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Text(
+                                    text = "Lyrics • ${lyrics.source}",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                LyricsStatus.NotFound -> {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        AlbumArtwork(
-                            bitmap = artworkBitmap,
-                            modifier = Modifier.size(140.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "No lyrics found",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "We couldn't find lyrics for this song.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-
-                is LyricsStatus.ProviderError -> {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        AlbumArtwork(
-                            bitmap = artworkBitmap,
-                            modifier = Modifier.size(120.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Lyrics Provider Error",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = lyricsStatus.message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(onClick = onRetry) {
-                            Text("Retry Lyrics")
+                                if (lyrics.lyricLines.isNotEmpty()) {
+                                    SyncedLyrics(
+                                        lines = lyrics.lyricLines,
+                                        positionMs = positionMs,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                } else if (!lyrics.plainText.isNullOrBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .lyricsFadeMask()
+                                            .verticalScroll(rememberScrollState())
+                                    ) {
+                                        Text(
+                                            text = lyrics.plainText,
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                lineHeight = 26.sp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No lyrics content available",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        LyricsStatus.NotFound -> {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                AlbumArtwork(
+                                    bitmap = artworkBitmap,
+                                    modifier = Modifier.size(140.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No lyrics found",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "We couldn't find lyrics for this song.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        is LyricsStatus.ProviderError -> {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                AlbumArtwork(
+                                    bitmap = artworkBitmap,
+                                    modifier = Modifier.size(120.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Lyrics Provider Error",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = lyricsStatus.message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                OutlinedButton(onClick = onRetry) {
+                                    Text("Retry Lyrics")
+                                }
+                            }
                         }
                     }
                 }
