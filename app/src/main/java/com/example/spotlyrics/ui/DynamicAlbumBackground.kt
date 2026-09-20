@@ -5,6 +5,9 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -19,15 +22,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import kotlin.math.max
-import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -37,8 +41,8 @@ fun DynamicAlbumBackground(
     bitmap: Bitmap?,
     modifier: Modifier = Modifier
 ) {
-    var currentBlurredBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    var previousBlurredBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var currentProcessedBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var previousProcessedBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var isDarkAlbum by remember { mutableStateOf(false) }
     val alphaAnim = remember { Animatable(1f) }
 
@@ -49,25 +53,25 @@ fun DynamicAlbumBackground(
             }
             isDarkAlbum = darkDetected
 
-            previousBlurredBitmap = currentBlurredBitmap
-            val newBlurred = if (!darkDetected) {
+            previousProcessedBitmap = currentProcessedBitmap
+            val newProcessed = if (!darkDetected) {
                 withContext(Dispatchers.IO) {
-                    createBlurredBackgroundBitmap(bitmap)
+                    createAtmosphericBackgroundBitmap(bitmap)
                 }
             } else {
                 null
             }
-            currentBlurredBitmap = newBlurred
-            if (previousBlurredBitmap != null) {
+            currentProcessedBitmap = newProcessed
+            if (previousProcessedBitmap != null) {
                 alphaAnim.snapTo(0f)
                 alphaAnim.animateTo(1f, animationSpec = tween(durationMillis = 400))
-                previousBlurredBitmap = null
+                previousProcessedBitmap = null
             } else {
                 alphaAnim.snapTo(1f)
             }
         } else {
-            currentBlurredBitmap = null
-            previousBlurredBitmap = null
+            currentProcessedBitmap = null
+            previousProcessedBitmap = null
             isDarkAlbum = false
         }
     }
@@ -83,27 +87,51 @@ fun DynamicAlbumBackground(
                 .background(Color(0xFF121212))
         )
 
-        // Previous blurred background (fading out)
-        previousBlurredBitmap?.let { prevBmp ->
+        // Previous processed background (fading out)
+        previousProcessedBitmap?.let { prevBmp ->
             Image(
                 bitmap = prevBmp,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = 1f - alphaAnim.value }
+                    .graphicsLayer {
+                        alpha = 1f - alphaAnim.value
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            renderEffect = RenderEffect
+                                .createBlurEffect(120f, 120f, Shader.TileMode.MIRROR)
+                                .asComposeRenderEffect()
+                        }
+                    }
+                    .then(
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                            Modifier.blur(60.dp)
+                        } else Modifier
+                    )
             )
         }
 
-        // Current blurred background (fading in) - only for non-dark albums
-        currentBlurredBitmap?.let { currBmp ->
+        // Current processed background (fading in) - only for non-dark albums
+        currentProcessedBitmap?.let { currBmp ->
             Image(
                 bitmap = currBmp,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { alpha = alphaAnim.value }
+                    .graphicsLayer {
+                        alpha = alphaAnim.value
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            renderEffect = RenderEffect
+                                .createBlurEffect(120f, 120f, Shader.TileMode.MIRROR)
+                                .asComposeRenderEffect()
+                        }
+                    }
+                    .then(
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                            Modifier.blur(60.dp)
+                        } else Modifier
+                    )
             )
         }
 
@@ -117,13 +145,13 @@ fun DynamicAlbumBackground(
             )
         }
 
-        // Non-dark album: glassmorphic atmospheric layers
+        // Non-dark album: glassmorphic atmospheric overlays
         if (!isDarkAlbum) {
-            // Base dark overlay (subtle 20% black for vibrant background)
+            // Base dark overlay (subtle 25% black for vibrant glass depth)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.20f))
+                    .background(Color.Black.copy(alpha = 0.25f))
             )
 
             // Subtle glass/frost layer (5% white frost)
@@ -186,7 +214,6 @@ fun DynamicAlbumBackground(
  * Samples pixels at reduced resolution to calculate dark pixel proportion.
  */
 private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
-    // Sample at reduced resolution for performance
     val sampleSize = max(bitmap.width, bitmap.height) / 100
     val step = max(sampleSize, 1)
 
@@ -194,9 +221,7 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
     var totalPixels = 0
     var luminanceSum = 0f
 
-    // Luminance threshold (0.0-1.0): pixels below this are considered "dark"
     val luminanceThreshold = 0.28f
-    // Proportion threshold: if dark pixels exceed this, album is dark-dominant
     val proportionThreshold = 0.60f
 
     for (y in 0 until bitmap.height step step) {
@@ -206,7 +231,6 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
             val g = (pixel shr 8 and 0xFF) / 255f
             val b = (pixel and 0xFF) / 255f
 
-            // Calculate perceived luminance (sRGB)
             val luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b
             luminanceSum += luminance
 
@@ -220,33 +244,27 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
     val avgLuminance = if (totalPixels > 0) luminanceSum / totalPixels else 1f
     val darkProportion = if (totalPixels > 0) darkPixels.toFloat() / totalPixels else 0f
 
-    // Album is dark-dominant if:
-    // - At least 60% of pixels are dark (luminance < 0.28), OR
-    // - Average luminance is very low (< 0.20)
     return darkProportion >= proportionThreshold || avgLuminance < 0.20f
 }
 
 /**
- * Creates a blurred background bitmap with saturation, contrast, and brightness adjustments.
- * Runs on IO thread to avoid blocking UI.
+ * Creates an atmospheric background bitmap from high-resolution album artwork.
+ * Applies color matrix adjustments (saturation ~1.35x, contrast ~1.08x, brightness ~0.95x)
+ * and software pre-blur for pre-Android 12 devices while keeping full native resolution.
+ * Runs on IO thread.
  */
-private fun createBlurredBackgroundBitmap(bitmap: Bitmap): ImageBitmap {
-    // Scale down to 20% for blur processing, then scale back up
-    val scale = 0.2f
-    val scaledWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
-    val scaledHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+private fun createAtmosphericBackgroundBitmap(bitmap: Bitmap): ImageBitmap {
+    val outWidth = bitmap.width
+    val outHeight = bitmap.height
 
-    val scaled = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true)
-    val blurred = Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
+    val processed = Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    
-    // Color matrix for saturation ~1.4, brightness ~0.92, contrast ~1.08
     val cm = android.graphics.ColorMatrix()
-    cm.setSaturation(1.4f)
+    cm.setSaturation(1.35f)
 
     val contrast = 1.08f
-    val brightness = 0.92f
+    val brightness = 0.95f
     val cScale = contrast * brightness
     val cOffset = (1f - contrast) * 128f * brightness
 
@@ -257,18 +275,15 @@ private fun createBlurredBackgroundBitmap(bitmap: Bitmap): ImageBitmap {
         0f, 0f, 0f, 1f, 0f
     ))
     cm.postConcat(contrastMatrix)
-    
+
     paint.colorFilter = android.graphics.ColorMatrixColorFilter(cm)
-    paint.maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
 
-    val canvas = Canvas(blurred)
-    canvas.drawBitmap(scaled, 0f, 0f, paint)
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        paint.maskFilter = BlurMaskFilter(40f, BlurMaskFilter.Blur.NORMAL)
+    }
 
-    // Scale back up to full bitmap dimensions
-    val result = Bitmap.createScaledBitmap(blurred, bitmap.width, bitmap.height, true)
+    val canvas = Canvas(processed)
+    canvas.drawBitmap(bitmap, 0f, 0f, paint)
 
-    if (scaled != bitmap && !scaled.isRecycled) scaled.recycle()
-    if (!blurred.isRecycled) blurred.recycle()
-
-    return result.asImageBitmap()
+    return processed.asImageBitmap()
 }

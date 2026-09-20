@@ -194,7 +194,7 @@ class SpotifyManager private constructor() {
 
                 val imageUri = sdkState.track?.imageUri
                 if (imageUri != null) {
-                    remote.imagesApi.getImage(imageUri).setResultCallback { bitmap ->
+                    remote.imagesApi.getImage(imageUri, com.spotify.protocol.types.Image.Dimension.LARGE).setResultCallback { bitmap ->
                         _artworkBitmap.value = bitmap
                     }
                 } else {
