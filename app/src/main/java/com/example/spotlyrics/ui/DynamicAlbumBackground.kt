@@ -43,23 +43,13 @@ fun DynamicAlbumBackground(
 ) {
     var currentProcessedBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var previousProcessedBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    var isDarkAlbum by remember { mutableStateOf(false) }
     val alphaAnim = remember { Animatable(1f) }
 
     LaunchedEffect(bitmap) {
         if (bitmap != null) {
-            val darkDetected = withContext(Dispatchers.IO) {
-                isAlbumDarkDominant(bitmap)
-            }
-            isDarkAlbum = darkDetected
-
             previousProcessedBitmap = currentProcessedBitmap
-            val newProcessed = if (!darkDetected) {
-                withContext(Dispatchers.IO) {
-                    createAtmosphericBackgroundBitmap(bitmap)
-                }
-            } else {
-                null
+            val newProcessed = withContext(Dispatchers.IO) {
+                createAtmosphericBackgroundBitmap(bitmap)
             }
             currentProcessedBitmap = newProcessed
             if (previousProcessedBitmap != null) {
@@ -72,7 +62,6 @@ fun DynamicAlbumBackground(
         } else {
             currentProcessedBitmap = null
             previousProcessedBitmap = null
-            isDarkAlbum = false
         }
     }
 
@@ -99,19 +88,19 @@ fun DynamicAlbumBackground(
                         alpha = 1f - alphaAnim.value
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                             renderEffect = RenderEffect
-                                .createBlurEffect(120f, 120f, Shader.TileMode.MIRROR)
+                                .createBlurEffect(70f, 70f, Shader.TileMode.MIRROR)
                                 .asComposeRenderEffect()
                         }
                     }
                     .then(
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                            Modifier.blur(60.dp)
+                            Modifier.blur(35.dp)
                         } else Modifier
                     )
             )
         }
 
-        // Current processed background (fading in) - only for non-dark albums
+        // Current processed background (fading in)
         currentProcessedBitmap?.let { currBmp ->
             Image(
                 bitmap = currBmp,
@@ -123,89 +112,77 @@ fun DynamicAlbumBackground(
                         alpha = alphaAnim.value
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                             renderEffect = RenderEffect
-                                .createBlurEffect(120f, 120f, Shader.TileMode.MIRROR)
+                                .createBlurEffect(70f, 70f, Shader.TileMode.MIRROR)
                                 .asComposeRenderEffect()
                         }
                     }
                     .then(
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                            Modifier.blur(60.dp)
+                            Modifier.blur(35.dp)
                         } else Modifier
                     )
             )
         }
 
-        // Dark album: pure black background
-        if (isDarkAlbum) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = alphaAnim.value }
-                    .background(Color.Black)
-            )
-        }
+        // Glassmorphic atmospheric overlays
+        // Base dark overlay (subtle 22% black for vibrant glass depth)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.22f))
+        )
 
-        // Non-dark album: glassmorphic atmospheric overlays
-        if (!isDarkAlbum) {
-            // Base dark overlay (subtle 25% black for vibrant glass depth)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.25f))
-            )
+        // Subtle glass/frost layer (5% white frost)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.05f))
+        )
 
-            // Subtle glass/frost layer (5% white frost)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.White.copy(alpha = 0.05f))
-            )
-
-            // Subtle glass highlight layer - top gradient
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0.0f to Color.White.copy(alpha = 0.04f),
-                            0.3f to Color.Transparent,
-                            1.0f to Color.Transparent
-                        )
+        // Subtle glass highlight layer - top gradient
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.White.copy(alpha = 0.04f),
+                        0.3f to Color.Transparent,
+                        1.0f to Color.Transparent
                     )
-            )
+                )
+        )
 
-            // Subtle glass highlight layer - bottom gradient
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0.0f to Color.Transparent,
-                            0.7f to Color.Transparent,
-                            1.0f to Color.White.copy(alpha = 0.03f)
-                        )
+        // Subtle glass highlight layer - bottom gradient
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Transparent,
+                        0.7f to Color.Transparent,
+                        1.0f to Color.White.copy(alpha = 0.03f)
                     )
-            )
+                )
+        )
 
-            // Subtle radial vignette for depth
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.radialGradient(
-                            listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.15f)
-                            ),
-                            center = androidx.compose.ui.geometry.Offset(
-                                x = 0.5f,
-                                y = 0.5f
-                            ),
-                            radius = 0.8f
-                        )
+        // Subtle radial vignette for depth
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.15f)
+                        ),
+                        center = androidx.compose.ui.geometry.Offset(
+                            x = 0.5f,
+                            y = 0.5f
+                        ),
+                        radius = 0.8f
                     )
-            )
-        }
+                )
+        )
     }
 }
 
