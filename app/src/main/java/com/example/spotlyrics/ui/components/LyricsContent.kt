@@ -40,14 +40,10 @@ fun LyricsContent(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .clipToBounds(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-        )
+            .clipToBounds()
     ) {
         Box(
             modifier = Modifier

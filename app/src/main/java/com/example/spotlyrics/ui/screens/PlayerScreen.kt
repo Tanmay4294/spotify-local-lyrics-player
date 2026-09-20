@@ -152,13 +152,13 @@ fun PlayerScreen(
                     valueRange = 0f..(durationMs.coerceAtLeast(1L)).toFloat(),
                     enabled = isConnected && currentTrack != null,
                     colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        thumbColor = MaterialTheme.colorScheme.onBackground,
+                        activeTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
                     ),
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
-                        .height(4.dp)
+                        .height(2.dp)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(

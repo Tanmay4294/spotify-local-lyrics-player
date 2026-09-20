@@ -41,7 +41,7 @@ fun PlaybackControls(
             Icon(
                 imageVector = Icons.Default.SkipPrevious,
                 contentDescription = "Previous track",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
                 tint = if (enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
             )
         }
@@ -55,8 +55,8 @@ fun PlaybackControls(
             Icon(
                 imageVector = if (isPlaying) Icons.Default.PauseCircle else Icons.Default.PlayCircle,
                 contentDescription = if (isPlaying) "Pause" else "Play",
-                modifier = Modifier.size(48.dp),
-                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                modifier = Modifier.size(36.dp),
+                tint = if (enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
             )
         }
 
@@ -69,7 +69,7 @@ fun PlaybackControls(
             Icon(
                 imageVector = Icons.Default.SkipNext,
                 contentDescription = "Next track",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
                 tint = if (enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
             )
         }

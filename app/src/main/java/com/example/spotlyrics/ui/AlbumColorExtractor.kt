@@ -13,16 +13,27 @@ object AlbumColorExtractor {
     fun extractDarkenedColor(context: Context, bitmap: Bitmap?): Int? {
         return bitmap?.let { bmp ->
             Palette.from(bmp).generate().let { palette ->
-                val vibrant = palette.vibrantSwatch
-                val darkVibrant = palette.darkVibrantSwatch
-                val lightVibrant = palette.lightVibrantSwatch
-                val muted = palette.mutedSwatch
-                val darkMuted = palette.darkMutedSwatch
-
-                val swatch = vibrant ?: darkVibrant ?: lightVibrant ?: muted ?: darkMuted
+                val swatch = palette.vibrantSwatch
+                    ?: palette.darkVibrantSwatch
+                    ?: palette.lightVibrantSwatch
+                    ?: palette.mutedSwatch
+                    ?: palette.darkMutedSwatch
 
                 swatch?.let { s ->
-                    darkenColor(s.rgb, 0.35f)
+                    val rgb = s.rgb
+                    // Convert to HSV (hue, saturation, value)
+                    val hsv = FloatArray(3)
+                    android.graphics.Color.RGBToHSV(
+                        (rgb shr 16) and 0xFF,
+                        (rgb shr 8) and 0xFF,
+                        rgb and 0xFF,
+                        hsv
+                    )
+                    // Clamp saturation and value to avoid neon/bright colors
+                    hsv[1] = hsv[1].coerceAtMost(0.5f) // max 50% saturation
+                    hsv[2] = hsv[2].coerceAtMost(0.4f) // max 40% brightness
+                    // Return opaque color with clamped HSV
+                    android.graphics.Color.HSVToColor(0xFF, hsv)
                 }
             }
         }
