@@ -56,7 +56,11 @@ fun SyncedLyrics(
     val activeLineIndex = LrcParser.activeLine(lines, positionMs)
     val listState = rememberLazyListState()
 
-    // Smooth auto-scroll when active line index changes
+    // Smooth auto-scroll when active line index changes or lines instance changes
+    LaunchedEffect(lines) {
+        listState.scrollToItem(0)
+    }
+
     LaunchedEffect(activeLineIndex) {
         if (activeLineIndex >= 0 && activeLineIndex < lines.size) {
             val scrollIndex = (activeLineIndex - 2).coerceAtLeast(0)

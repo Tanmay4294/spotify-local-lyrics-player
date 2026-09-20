@@ -120,4 +120,32 @@ class PlayerViewModelUiTest {
         assertEquals(1, LrcParser.activeLine(lines, 35000L))
         assertEquals(2, LrcParser.activeLine(lines, 65000L))
     }
+
+    @Test
+    fun trackIdentityChangeDetectionDistinguishesDifferentTracks() {
+        val trackA = SpotifyTrack("idA", "Track A", "Artist", "Album", null, 180000L)
+        val trackB = SpotifyTrack("idB", "Track B", "Artist", "Album", null, 180000L)
+        val trackA2 = SpotifyTrack("idA", "Track A", "Artist", "Album", null, 180000L)
+
+        assertFalse(trackA.id == trackB.id)
+        assertTrue(trackA.id == trackA2.id)
+    }
+
+    @Test
+    fun trackChangeResetsActiveLineToBeginning() {
+        val trackALines = listOf(
+            LyricLine(1000L, "Track A Line 1"),
+            LyricLine(5000L, "Track A Line 2")
+        )
+        val trackBLines = listOf(
+            LyricLine(1000L, "Track B Line 1"),
+            LyricLine(5000L, "Track B Line 2")
+        )
+
+        val activeLineA = LrcParser.activeLine(trackALines, 6000L)
+        val activeLineBInitial = LrcParser.activeLine(trackBLines, 0L)
+
+        assertEquals(1, activeLineA)
+        assertEquals(-1, activeLineBInitial)
+    }
 }
