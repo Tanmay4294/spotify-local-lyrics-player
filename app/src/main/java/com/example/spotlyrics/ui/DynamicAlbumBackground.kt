@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.util.DisplayMetrics
+import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import kotlin.math.min
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -41,7 +44,7 @@ fun DynamicAlbumBackground(
         if (bitmap != null) {
             previousBlurredBitmap = currentBlurredBitmap
             val newBlurred = withContext(Dispatchers.IO) {
-                createBlurredBitmap(bitmap)
+                createBlurredBackgroundBitmap(context, bitmap)
             }
             currentBlurredBitmap = newBlurred
             if (previousBlurredBitmap != null) {
@@ -101,21 +104,51 @@ fun DynamicAlbumBackground(
     }
 }
 
-private fun createBlurredBitmap(bitmap: Bitmap): ImageBitmap {
-    val scale = 0.2f
-    val scaledWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
-    val scaledHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+/**
+ * Creates a blurred background bitmap scaled to fill the entire screen.
+ * Runs on IO thread to avoid blocking UI.
+ */
+private fun createBlurredBackgroundBitmap(context: Context, bitmap: Bitmap): ImageBitmap {
+    // Get screen dimensions
+    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    val metrics = DisplayMetrics()
+    windowManager.defaultDisplay.getRealMetrics(metrics)
+    val screenWidth = metrics.widthPixels
+    val screenHeight = metrics.heightPixels
 
-    val scaled = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true)
-    val blurred = Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
+    // Scale bitmap to fill screen (crop to aspect ratio)
+    val sourceAspect = bitmap.width.toFloat() / bitmap.height
+    val screenAspect = screenWidth.toFloat() / screenHeight
+
+    val (scaledWidth, scaledHeight) = if (sourceAspect > screenAspect) {
+        // Source is wider - scale by height
+        val h = screenHeight
+        val w = (h * sourceAspect).toInt()
+        w to h
+    } else {
+        // Source is taller - scale by width
+        val w = screenWidth
+        val h = (w / sourceAspect).toInt()
+        w to h
+    }
+
+    // Scale down for faster blur processing (target ~400px on shorter side for quality/performance)
+    val blurScale = 400f / min(scaledWidth, scaledHeight)
+    val blurWidth = (scaledWidth * blurScale).toInt().coerceAtLeast(1)
+    val blurHeight = (scaledHeight * blurScale).toInt().coerceAtLeast(1)
+
+    val scaled = Bitmap.createScaledBitmap(bitmap, blurWidth, blurHeight, true)
+    val blurred = Bitmap.createBitmap(blurWidth, blurHeight, Bitmap.Config.ARGB_8888)
 
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    paint.maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
+    // Strong blur radius for atmospheric effect
+    paint.maskFilter = BlurMaskFilter(25f * blurScale, BlurMaskFilter.Blur.NORMAL)
 
     val canvas = Canvas(blurred)
     canvas.drawBitmap(scaled, 0f, 0f, paint)
 
-    val result = Bitmap.createScaledBitmap(blurred, bitmap.width, bitmap.height, true)
+    // Scale back up to screen dimensions
+    val result = Bitmap.createScaledBitmap(blurred, scaledWidth, scaledHeight, true)
 
     if (scaled != bitmap && !scaled.isRecycled) scaled.recycle()
     if (!blurred.isRecycled) blurred.recycle()
