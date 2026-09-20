@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -115,12 +117,58 @@ fun DynamicAlbumBackground(
             )
         }
 
-        // Dark overlay for contrast and readability (75% black overlay) - only for non-dark albums
+        // Non-dark album: glassmorphic atmospheric layers
         if (!isDarkAlbum) {
+            // Base dark overlay (75% black)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.75f))
+            )
+
+            // Subtle glass highlight layer - top gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0.0f to Color.White.copy(alpha = 0.03f),
+                            0.3f to Color.Transparent,
+                            1.0f to Color.Transparent
+                        )
+                    )
+            )
+
+            // Subtle glass highlight layer - bottom gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0.0f to Color.Transparent,
+                            0.7f to Color.Transparent,
+                            1.0f to Color.White.copy(alpha = 0.02f)
+                        )
+                    )
+            )
+
+            // Subtle radial vignette for depth
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.15f)
+                            ),
+                            center = androidx.compose.ui.geometry.Offset(
+                                x = 0.5f,
+                                y = 0.5f
+                            ),
+                            radius = 0.8f
+                        )
+                    )
             )
         }
     }

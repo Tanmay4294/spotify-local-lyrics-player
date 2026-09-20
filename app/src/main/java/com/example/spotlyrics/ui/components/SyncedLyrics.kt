@@ -112,9 +112,9 @@ fun SyncedLyrics(
                 }
 
                 val targetSize = when {
-                    isActive -> 25.sp
-                    distance == 1 -> 21.sp
-                    else -> 19.sp
+                    isActive -> 29.sp
+                    distance == 1 -> 25.sp
+                    else -> 23.sp
                 }
 
                 val targetWeight = when {

@@ -119,7 +119,7 @@ fun SettingsDialog(
                         )
                         Column {
                             Text(
-                                text = "Album Color",
+                                text = "Simple Colour",
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                             )
                             Text(
@@ -152,7 +152,7 @@ fun SettingsDialog(
                         )
                         Column {
                             Text(
-                                text = "Dynamic Album Art",
+                                text = "Album Art",
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                             )
                             Text(

@@ -1,5 +1,6 @@
 package com.example.spotlyrics.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +43,8 @@ import com.example.spotlyrics.ui.components.PlaybackControls
 import com.example.spotlyrics.ui.components.TrackHeader
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun PlayerScreen(
@@ -138,6 +142,19 @@ fun PlayerScreen(
 
             // 4. Progress / seek bar
             Column(modifier = Modifier.fillMaxWidth()) {
+                val isAlbumArtMode = appearanceMode == AppearanceMode.DynamicAlbumArt
+                val trackColor = if (isAlbumArtMode) {
+                    // Subtle translucent glass track color
+                    Color.White.copy(alpha = 0.4f)
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                }
+                val inactiveTrackColor = if (isAlbumArtMode) {
+                    Color.White.copy(alpha = 0.15f)
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                }
+                
                 Slider(
                     value = (dragPositionMs.value ?: currentPositionMs).toFloat(),
                     onValueChange = { v -> dragPositionMs.value = v.toLong() },
@@ -148,9 +165,9 @@ fun PlayerScreen(
                     valueRange = 0f..(durationMs.coerceAtLeast(1L)).toFloat(),
                     enabled = isConnected && currentTrack != null,
                     colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.onBackground,
-                        activeTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        thumbColor = if (isAlbumArtMode) Color.White else MaterialTheme.colorScheme.onBackground,
+                        activeTrackColor = trackColor,
+                        inactiveTrackColor = inactiveTrackColor
                     ),
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
