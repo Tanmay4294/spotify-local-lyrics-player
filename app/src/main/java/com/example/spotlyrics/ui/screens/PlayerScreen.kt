@@ -1,5 +1,6 @@
 package com.example.spotlyrics.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,15 +11,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,7 +30,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,6 +42,9 @@ import com.example.spotlyrics.ui.components.AlbumArtwork
 import com.example.spotlyrics.ui.components.LyricsContent
 import com.example.spotlyrics.ui.components.PlaybackControls
 import com.example.spotlyrics.ui.components.TrackHeader
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 
 @Composable
 fun PlayerScreen(
@@ -67,30 +76,49 @@ fun PlayerScreen(
         val seconds = totalSeconds % 60
         return "%d:%02d".format(minutes, seconds)
     }
-    
-    // In UI, after LyricsContent (replace positionMs with lyricsPositionMs) add Slider
-    // We'll modify the LyricsContent call later.
 
 
-    val (showDiagnostics, setShowDiagnostics) = androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf(false)
-    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.Top
     ) {
-        // Track Header (shows track metadata or title fallback)
+        // Top bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Spotifly",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+            IconButton(onClick = { }) {
+                Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
+            }
+        }
+
+        // Album artwork responsive size (45% of screen width)
+        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+        val artworkSize = screenWidth * 0.45f
+        AlbumArtwork(
+            bitmap = artworkBitmap,
+            modifier = Modifier.size(artworkSize)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Track Header
         TrackHeader(
             track = if (isConnected) currentTrack else null
         )
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Center Area: Main Content Box (Handling 8 states)
+        // Main content area handling connection states
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -98,7 +126,7 @@ fun PlayerScreen(
             contentAlignment = Alignment.Center
         ) {
             when (connectionState) {
-                // State 1: Disconnected
+                // Disconnected – show minimal info and connect button
                 SpotifyConnectionState.Disconnected -> {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -113,11 +141,6 @@ fun PlayerScreen(
                                 .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            AlbumArtwork(
-                                bitmap = artworkBitmap,
-                                modifier = Modifier.size(140.dp)
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
                             Text(
                                 text = "Spotify Disconnected",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -137,8 +160,7 @@ fun PlayerScreen(
                         }
                     }
                 }
-
-                // State 2: Connecting
+                // Connecting
                 SpotifyConnectionState.Connecting -> {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -155,8 +177,7 @@ fun PlayerScreen(
                         )
                     }
                 }
-
-                // State 7: Spotify Error
+                // Error
                 is SpotifyConnectionState.Error -> {
                     val errorMessage = (connectionState as SpotifyConnectionState.Error).message
                     Card(
@@ -191,19 +212,13 @@ fun PlayerScreen(
                         }
                     }
                 }
-
-                // Connected States (3, 4, 5, 6, 8)
+                // Connected
                 is SpotifyConnectionState.Connected -> {
                     if (currentTrack == null) {
-                        // State 3: Connected / No Track
+                        // No track yet
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            AlbumArtwork(
-                                bitmap = artworkBitmap,
-                                modifier = Modifier.size(160.dp)
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
                             Text(
                                 text = "Waiting for a song...",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -218,79 +233,79 @@ fun PlayerScreen(
                             )
                         }
                     } else {
-                        // States 4, 5, 6, 8: Active Track
-                        // Use synthetic playback position for lyrics
-                        LyricsContent(
-                            lyricsStatus = lyricsStatus,
-                            positionMs = lyricsPositionMs,
-                            track = currentTrack,
-                            artworkBitmap = artworkBitmap,
-                            onRetry = { viewModel.retryLyrics() },
-                            modifier = Modifier.fillMaxSize()
+                                    // Active track UI
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
+                // Progress slider
+                if (durationMs > 0L) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Slider(
+                            value = (dragPositionMs.value ?: currentPositionMs).toFloat(),
+                            onValueChange = { v -> dragPositionMs.value = v.toLong() },
+                            onValueChangeFinished = {
+                                viewModel.seekTo(dragPositionMs.value ?: currentPositionMs)
+                                dragPositionMs.value = null
+                            },
+                            valueRange = 0f..durationMs.toFloat(),
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .height(4.dp)
                         )
-                        // Progress slider
-                        if (durationMs > 0L) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Slider(
-                                    value = (dragPositionMs.value ?: currentPositionMs).toFloat(),
-                                    onValueChange = { v -> dragPositionMs.value = v.toLong() },
-                                    onValueChangeFinished = {
-                                        viewModel.seekTo(dragPositionMs.value ?: currentPositionMs)
-                                        dragPositionMs.value = null
-                                    },
-                                    valueRange = 0f..durationMs.toFloat(),
-                                    modifier = Modifier.padding(horizontal = 16.dp)
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = formatMs(dragPositionMs.value ?: currentPositionMs))
-                                    Text(text = formatMs(durationMs))
-                                }
-                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = formatMs(dragPositionMs.value ?: currentPositionMs))
+                            Text(text = formatMs(durationMs))
                         }
                     }
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Playback Controls Section
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            PlaybackControls(
-                isPlaying = isPlaying,
-                enabled = isConnected && currentTrack != null,
-                onPlay = { viewModel.play() },
-                onPause = { viewModel.pause() },
-                onSkipNext = { viewModel.skipNext() },
-                onSkipPrevious = { viewModel.skipPrevious() }
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (isConnected) {
-                    OutlinedButton(onClick = { viewModel.disconnect() }) {
-                        Text("Disconnect")
-                    }
+                // Playback controls
+                PlaybackControls(
+                    isPlaying = isPlaying,
+                    enabled = isConnected && currentTrack != null,
+                    onPlay = { viewModel.play() },
+                    onPause = { viewModel.pause() },
+                    onSkipNext = { viewModel.skipNext() },
+                    onSkipPrevious = { viewModel.skipPrevious() }
+                )
+                // Lyrics heading
+                Text(
+                    text = "LYRICS",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                // Lyrics viewport occupies remaining space
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    LyricsContent(
+                        lyricsStatus = lyricsStatus,
+                        positionMs = lyricsPositionMs,
+                        track = currentTrack,
+                        artworkBitmap = artworkBitmap,
+                        onRetry = { viewModel.retryLyrics() },
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
-                OutlinedButton(onClick = { setShowDiagnostics(true) }) {
-                    Text("Diagnostics")
+            }
+
+                    }
                 }
             }
         }
     }
 
-    if (showDiagnostics) {
+    // Diagnostics dialog retained but no button to open it in Phase 1
+    if (false) {
         DiagnosticsDialog(
             viewModel = viewModel,
-            onDismiss = { setShowDiagnostics(false) }
+            onDismiss = { /* no-op */ }
         )
     }
 }
