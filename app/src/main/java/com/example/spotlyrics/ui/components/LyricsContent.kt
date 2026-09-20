@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -170,27 +171,12 @@ fun LyricsContent(
                             }
                         }
                         LyricsStatus.NotFound -> {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                AlbumArtwork(
-                                    bitmap = artworkBitmap,
-                                    modifier = Modifier.size(140.dp)
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "No lyrics found",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "We couldn't find lyrics for this song.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                            Text(
+                                text = "NO LYRICS TO PROVIDE",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.White,
+                                textAlign = TextAlign.Center
+                            )
                         }
                         is LyricsStatus.ProviderError -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
