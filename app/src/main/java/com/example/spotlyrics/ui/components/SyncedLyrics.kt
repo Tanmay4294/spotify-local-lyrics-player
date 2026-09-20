@@ -18,12 +18,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.spotlyrics.lyrics.LrcParser
 import com.example.spotlyrics.lyrics.LyricLine
+
+fun Modifier.lyricsFadeMask(): Modifier = this
+    .clipToBounds()
+    .graphicsLayer { alpha = 0.99f }
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.verticalGradient(
+                0.0f to Color.Transparent,
+                0.12f to Color.Black,
+                0.88f to Color.Black,
+                1.0f to Color.Transparent
+            ),
+            blendMode = BlendMode.DstIn
+        )
+    }
 
 @Composable
 fun SyncedLyrics(
@@ -44,7 +66,9 @@ fun SyncedLyrics(
 
     if (lines.isEmpty()) {
         Box(
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .clipToBounds(),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -56,12 +80,15 @@ fun SyncedLyrics(
     } else {
         LazyColumn(
             state = listState,
-            modifier = modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .lyricsFadeMask(),
             contentPadding = PaddingValues(vertical = 32.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             itemsIndexed(lines) { index, line ->
                 val isActive = index == activeLineIndex
+                val distance = if (activeLineIndex >= 0) kotlin.math.abs(index - activeLineIndex) else 999
 
                 val textColor by animateColorAsState(
                     targetValue = if (isActive) {
@@ -73,9 +100,24 @@ fun SyncedLyrics(
                     label = "lyricTextColor"
                 )
 
-                val targetAlpha = if (isActive) 1.0f else 0.45f
-                val targetSize = if (isActive) 20.sp else 16.sp
-                val targetWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                val targetAlpha = when {
+                    isActive -> 1.0f
+                    distance == 1 -> 0.65f
+                    distance == 2 -> 0.45f
+                    else -> 0.25f
+                }
+
+                val targetSize = when {
+                    isActive -> 20.sp
+                    distance == 1 -> 16.sp
+                    else -> 15.sp
+                }
+
+                val targetWeight = when {
+                    isActive -> FontWeight.Bold
+                    distance == 1 -> FontWeight.SemiBold
+                    else -> FontWeight.Normal
+                }
 
                 Text(
                     text = line.text.ifEmpty { " " },

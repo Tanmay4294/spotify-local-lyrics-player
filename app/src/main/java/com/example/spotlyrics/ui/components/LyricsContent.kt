@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,16 +39,19 @@ fun LyricsContent(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
         )
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(16.dp)
+                .clipToBounds(),
             contentAlignment = Alignment.Center
         ) {
             when (lyricsStatus) {
@@ -95,6 +99,7 @@ fun LyricsContent(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxWidth()
+                                    .lyricsFadeMask()
                                     .verticalScroll(rememberScrollState())
                             ) {
                                 Text(
@@ -102,7 +107,8 @@ fun LyricsContent(
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         lineHeight = 26.sp
                                     ),
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
                                 )
                             }
                         } else {

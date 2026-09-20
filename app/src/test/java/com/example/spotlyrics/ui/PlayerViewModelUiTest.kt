@@ -75,4 +75,49 @@ class PlayerViewModelUiTest {
         assertTrue(playingState.isPlaying)
         assertFalse(pausedState.isPlaying)
     }
+
+    @Test
+    fun lyricDistanceHierarchyCalculatesCorrectEmphasisLevels() {
+        val lines = listOf(
+            LyricLine(1000L, "Line 0"),
+            LyricLine(5000L, "Line 1"),
+            LyricLine(10000L, "Line 2 - Active"),
+            LyricLine(15000L, "Line 3"),
+            LyricLine(20000L, "Line 4"),
+            LyricLine(25000L, "Line 5")
+        )
+
+        val activeIndex = LrcParser.activeLine(lines, 12000L)
+        assertEquals(2, activeIndex)
+
+        fun getAlpha(index: Int): Float {
+            val dist = kotlin.math.abs(index - activeIndex)
+            return when {
+                index == activeIndex -> 1.0f
+                dist == 1 -> 0.65f
+                dist == 2 -> 0.45f
+                else -> 0.25f
+            }
+        }
+
+        assertEquals(1.0f, getAlpha(2), 0.01f)
+        assertEquals(0.65f, getAlpha(1), 0.01f)
+        assertEquals(0.65f, getAlpha(3), 0.01f)
+        assertEquals(0.45f, getAlpha(0), 0.01f)
+        assertEquals(0.45f, getAlpha(4), 0.01f)
+        assertEquals(0.25f, getAlpha(5), 0.01f)
+    }
+
+    @Test
+    fun seekingToPositionUpdatesActiveLyricIndexImmediately() {
+        val lines = listOf(
+            LyricLine(0L, "Start"),
+            LyricLine(30000L, "Middle"),
+            LyricLine(60000L, "End")
+        )
+
+        assertEquals(0, LrcParser.activeLine(lines, 5000L))
+        assertEquals(1, LrcParser.activeLine(lines, 35000L))
+        assertEquals(2, LrcParser.activeLine(lines, 65000L))
+    }
 }

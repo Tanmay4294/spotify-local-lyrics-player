@@ -290,21 +290,29 @@ fun PlayerScreen(
                                                 dragPositionMs.value = null
                                             },
                                             valueRange = 0f..durationMs.toFloat(),
+                                            colors = androidx.compose.material3.SliderDefaults.colors(
+                                                thumbColor = MaterialTheme.colorScheme.primary,
+                                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                            ),
                                             modifier = Modifier
                                                 .padding(horizontal = 16.dp)
                                                 .height(4.dp)
                                         )
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Row(
                                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(
                                                 text = formatMs(dragPositionMs.value ?: currentPositionMs),
-                                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                                             )
                                             Text(
                                                 text = formatMs(durationMs),
-                                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                                             )
                                         }
                                     }
