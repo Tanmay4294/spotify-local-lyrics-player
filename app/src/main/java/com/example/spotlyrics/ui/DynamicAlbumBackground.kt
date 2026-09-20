@@ -119,11 +119,18 @@ fun DynamicAlbumBackground(
 
         // Non-dark album: glassmorphic atmospheric layers
         if (!isDarkAlbum) {
-            // Base dark overlay (75% black)
+            // Base dark overlay (subtle 20% black for vibrant background)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.75f))
+                    .background(Color.Black.copy(alpha = 0.20f))
+            )
+
+            // Subtle glass/frost layer (5% white frost)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White.copy(alpha = 0.05f))
             )
 
             // Subtle glass highlight layer - top gradient
@@ -132,7 +139,7 @@ fun DynamicAlbumBackground(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            0.0f to Color.White.copy(alpha = 0.03f),
+                            0.0f to Color.White.copy(alpha = 0.04f),
                             0.3f to Color.Transparent,
                             1.0f to Color.Transparent
                         )
@@ -147,7 +154,7 @@ fun DynamicAlbumBackground(
                         Brush.verticalGradient(
                             0.0f to Color.Transparent,
                             0.7f to Color.Transparent,
-                            1.0f to Color.White.copy(alpha = 0.02f)
+                            1.0f to Color.White.copy(alpha = 0.03f)
                         )
                     )
             )
@@ -220,7 +227,7 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
 }
 
 /**
- * Creates a blurred background bitmap for the glassy atmospheric effect.
+ * Creates a blurred background bitmap with saturation, contrast, and brightness adjustments.
  * Runs on IO thread to avoid blocking UI.
  */
 private fun createBlurredBackgroundBitmap(bitmap: Bitmap): ImageBitmap {
@@ -233,7 +240,25 @@ private fun createBlurredBackgroundBitmap(bitmap: Bitmap): ImageBitmap {
     val blurred = Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
 
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    // Strong blur radius for atmospheric effect
+    
+    // Color matrix for saturation ~1.4, brightness ~0.92, contrast ~1.08
+    val cm = android.graphics.ColorMatrix()
+    cm.setSaturation(1.4f)
+
+    val contrast = 1.08f
+    val brightness = 0.92f
+    val cScale = contrast * brightness
+    val cOffset = (1f - contrast) * 128f * brightness
+
+    val contrastMatrix = android.graphics.ColorMatrix(floatArrayOf(
+        cScale, 0f, 0f, 0f, cOffset,
+        0f, cScale, 0f, 0f, cOffset,
+        0f, 0f, cScale, 0f, cOffset,
+        0f, 0f, 0f, 1f, 0f
+    ))
+    cm.postConcat(contrastMatrix)
+    
+    paint.colorFilter = android.graphics.ColorMatrixColorFilter(cm)
     paint.maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
 
     val canvas = Canvas(blurred)
