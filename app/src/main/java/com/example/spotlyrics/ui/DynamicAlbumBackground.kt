@@ -39,13 +39,23 @@ fun DynamicAlbumBackground(
 ) {
     var currentBlurredBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var previousBlurredBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var isDarkAlbum by remember { mutableStateOf(false) }
     val alphaAnim = remember { Animatable(1f) }
 
     LaunchedEffect(bitmap) {
         if (bitmap != null) {
+            val darkDetected = withContext(Dispatchers.IO) {
+                isAlbumDarkDominant(bitmap)
+            }
+            isDarkAlbum = darkDetected
+
             previousBlurredBitmap = currentBlurredBitmap
-            val newBlurred = withContext(Dispatchers.IO) {
-                createBlurredBackgroundBitmap(context, bitmap)
+            val newBlurred = if (!darkDetected) {
+                withContext(Dispatchers.IO) {
+                    createBlurredBackgroundBitmap(context, bitmap)
+                }
+            } else {
+                null
             }
             currentBlurredBitmap = newBlurred
             if (previousBlurredBitmap != null) {
@@ -58,6 +68,7 @@ fun DynamicAlbumBackground(
         } else {
             currentBlurredBitmap = null
             previousBlurredBitmap = null
+            isDarkAlbum = false
         }
     }
 
@@ -84,7 +95,7 @@ fun DynamicAlbumBackground(
             )
         }
 
-        // Current blurred background (fading in)
+        // Current blurred background (fading in) - only for non-dark albums
         currentBlurredBitmap?.let { currBmp ->
             Image(
                 bitmap = currBmp,
@@ -96,12 +107,65 @@ fun DynamicAlbumBackground(
             )
         }
 
-        // Dark overlay for contrast and readability (75% black overlay)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f))
-        )
+        // Dark album: pure black background
+        if (isDarkAlbum) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = alphaAnim.value }
+                    .background(Color.Black)
+            )
+        }
+
+        // Dark overlay for contrast and readability (75% black overlay) - only for non-dark albums
+        if (!isDarkAlbum) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.75f))
+            )
+        }
+    }
+}
+
+/**
+ * Determines if an album artwork is predominantly dark/black.
+ * Samples pixels at reduced resolution to calculate dark pixel proportion.
+ */
+private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
+    // Sample at reduced resolution for performance
+    val sampleSize = max(bitmap.width, bitmap.height) / 100
+    val step = max(sampleSize, 1)
+
+    var darkPixels = 0
+    var totalPixels = 0
+
+    // Luminance threshold (0.0-1.0): pixels below this are considered "dark"
+    val luminanceThreshold = 0.22f
+    // Proportion threshold: if dark pixels exceed this, album is dark-dominant
+    val proportionThreshold = 0.75f
+
+    for (y in 0 until bitmap.height step step) {
+        for (x in 0 until bitmap.width step step) {
+            val pixel = bitmap.getPixel(x, y)
+            val r = (pixel shr 16 and 0xFF) / 255f
+            val g = (pixel shr 8 and 0xFF) / 255f
+            val b = (pixel and 0xFF) / 255f
+
+            // Calculate perceived luminance (sRGB)
+            val luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b
+
+            if (luminance < luminanceThreshold) {
+                darkPixels++
+            }
+            totalPixels++
+        }
+    }
+
+    return if (totalPixels > 0) {
+        darkPixels.toFloat() / totalPixels >= proportionThreshold
+    } else {
+        false
     }
 }
 
