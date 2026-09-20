@@ -119,11 +119,11 @@ fun PlayerScreen(
                 }
             }
 
-            // 2. Album artwork (responsive, capped at min(50% width, 28% height))
+            // 2. Album artwork (responsive, capped at min(45% width, 25% height))
             val configuration = LocalConfiguration.current
             val screenWidth = configuration.screenWidthDp.dp
             val screenHeight = configuration.screenHeightDp.dp
-            val artworkSize = minOf(screenWidth * 0.52f, screenHeight * 0.28f)
+            val artworkSize = minOf(screenWidth * 0.45f, screenHeight * 0.25f)
             AlbumArtwork(
                 bitmap = artworkBitmap,
                 modifier = Modifier.size(artworkSize)

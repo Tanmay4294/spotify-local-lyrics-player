@@ -5,8 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.util.DisplayMetrics
-import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -52,7 +50,7 @@ fun DynamicAlbumBackground(
             previousBlurredBitmap = currentBlurredBitmap
             val newBlurred = if (!darkDetected) {
                 withContext(Dispatchers.IO) {
-                    createBlurredBackgroundBitmap(context, bitmap)
+                    createBlurredBackgroundBitmap(bitmap)
                 }
             } else {
                 null
@@ -88,7 +86,7 @@ fun DynamicAlbumBackground(
             Image(
                 bitmap = prevBmp,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = 1f - alphaAnim.value }
@@ -100,7 +98,7 @@ fun DynamicAlbumBackground(
             Image(
                 bitmap = currBmp,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = alphaAnim.value }
@@ -139,11 +137,12 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
 
     var darkPixels = 0
     var totalPixels = 0
+    var luminanceSum = 0f
 
     // Luminance threshold (0.0-1.0): pixels below this are considered "dark"
-    val luminanceThreshold = 0.22f
+    val luminanceThreshold = 0.28f
     // Proportion threshold: if dark pixels exceed this, album is dark-dominant
-    val proportionThreshold = 0.75f
+    val proportionThreshold = 0.60f
 
     for (y in 0 until bitmap.height step step) {
         for (x in 0 until bitmap.width step step) {
@@ -154,6 +153,7 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
 
             // Calculate perceived luminance (sRGB)
             val luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b
+            luminanceSum += luminance
 
             if (luminance < luminanceThreshold) {
                 darkPixels++
@@ -162,55 +162,37 @@ private fun isAlbumDarkDominant(bitmap: Bitmap): Boolean {
         }
     }
 
-    return if (totalPixels > 0) {
-        darkPixels.toFloat() / totalPixels >= proportionThreshold
-    } else {
-        false
-    }
+    val avgLuminance = if (totalPixels > 0) luminanceSum / totalPixels else 1f
+    val darkProportion = if (totalPixels > 0) darkPixels.toFloat() / totalPixels else 0f
+
+    // Album is dark-dominant if:
+    // - At least 60% of pixels are dark (luminance < 0.28), OR
+    // - Average luminance is very low (< 0.20)
+    return darkProportion >= proportionThreshold || avgLuminance < 0.20f
 }
 
 /**
- * Creates a blurred background bitmap with conservative scaling (less zoomed).
+ * Creates a blurred background bitmap for the glassy atmospheric effect.
  * Runs on IO thread to avoid blocking UI.
  */
-private fun createBlurredBackgroundBitmap(context: Context, bitmap: Bitmap): ImageBitmap {
-    // Get screen dimensions
-    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    val metrics = DisplayMetrics()
-    windowManager.defaultDisplay.getRealMetrics(metrics)
-    val screenWidth = metrics.widthPixels
-    val screenHeight = metrics.heightPixels
+private fun createBlurredBackgroundBitmap(bitmap: Bitmap): ImageBitmap {
+    // Scale down to 20% for blur processing, then scale back up
+    val scale = 0.2f
+    val scaledWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+    val scaledHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
 
-    // Calculate fit scale (entire artwork visible) and cover scale (screen filled)
-    val fitScale = min(screenWidth.toFloat() / bitmap.width, screenHeight.toFloat() / bitmap.height)
-    val coverScale = max(screenWidth.toFloat() / bitmap.width, screenHeight.toFloat() / bitmap.height)
-
-    // Use a scale between fit and cover: ~1.20x fit scale for less zoom
-    val targetScale = fitScale * 1.20f
-
-    // Clamp to cover scale as maximum
-    val finalScale = min(targetScale, coverScale)
-
-    val scaledWidth = (bitmap.width * finalScale).toInt()
-    val scaledHeight = (bitmap.height * finalScale).toInt()
-
-    // Scale down for faster blur processing (target ~400px on shorter side for quality/performance)
-    val blurScale = 400f / min(scaledWidth, scaledHeight)
-    val blurWidth = (scaledWidth * blurScale).toInt().coerceAtLeast(1)
-    val blurHeight = (scaledHeight * blurScale).toInt().coerceAtLeast(1)
-
-    val scaled = Bitmap.createScaledBitmap(bitmap, blurWidth, blurHeight, true)
-    val blurred = Bitmap.createBitmap(blurWidth, blurHeight, Bitmap.Config.ARGB_8888)
+    val scaled = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true)
+    val blurred = Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
 
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     // Strong blur radius for atmospheric effect
-    paint.maskFilter = BlurMaskFilter(25f * blurScale, BlurMaskFilter.Blur.NORMAL)
+    paint.maskFilter = BlurMaskFilter(15f, BlurMaskFilter.Blur.NORMAL)
 
     val canvas = Canvas(blurred)
     canvas.drawBitmap(scaled, 0f, 0f, paint)
 
-    // Scale back up to target dimensions
-    val result = Bitmap.createScaledBitmap(blurred, scaledWidth, scaledHeight, true)
+    // Scale back up to full bitmap dimensions
+    val result = Bitmap.createScaledBitmap(blurred, bitmap.width, bitmap.height, true)
 
     if (scaled != bitmap && !scaled.isRecycled) scaled.recycle()
     if (!blurred.isRecycled) blurred.recycle()
