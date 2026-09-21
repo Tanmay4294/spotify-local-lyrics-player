@@ -1,6 +1,5 @@
 package com.example.spotlyrics.ui.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -61,7 +60,9 @@ fun SyncedLyrics(
     val activeLineIndex = LrcParser.activeLine(lines, positionMs)
     val listState = rememberLazyListState()
 
-    // Smooth auto-scroll when active line index changes or lines instance changes
+    // Hoisted shimmer animation state driven directly by activeLineIndex
+    val shimmerAnim = remember { Animatable(1f) }
+
     LaunchedEffect(lines) {
         listState.scrollToItem(0)
     }
@@ -70,6 +71,13 @@ fun SyncedLyrics(
         if (activeLineIndex >= 0 && activeLineIndex < lines.size) {
             val scrollIndex = (activeLineIndex - 2).coerceAtLeast(0)
             listState.animateScrollToItem(scrollIndex)
+
+            // Trigger one-shot shimmer pass for the newly active line
+            shimmerAnim.snapTo(0f)
+            shimmerAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 650)
+            )
         }
     }
 
@@ -102,7 +110,8 @@ fun SyncedLyrics(
                 LyricLineItem(
                     line = line,
                     isActive = isActive,
-                    distance = distance
+                    distance = distance,
+                    shimmerProgress = if (isActive) shimmerAnim.value else 1f
                 )
             }
         }
@@ -113,7 +122,8 @@ fun SyncedLyrics(
 private fun LyricLineItem(
     line: LyricLine,
     isActive: Boolean,
-    distance: Int
+    distance: Int,
+    shimmerProgress: Float
 ) {
     val targetAlpha = when {
         isActive -> 1.0f
@@ -134,49 +144,23 @@ private fun LyricLineItem(
         else -> FontWeight.Normal
     }
 
+    // Inactive lines fade out smoothly; active line is immediately 1.0f on frame 0
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(durationMillis = 250),
+        animationSpec = tween(durationMillis = 200),
         label = "lyricAlpha"
     )
 
     val animatedScale by animateFloatAsState(
         targetValue = if (isActive) 1.04f else 1.00f,
-        animationSpec = tween(durationMillis = 250),
+        animationSpec = tween(durationMillis = 200),
         label = "lyricScale"
     )
 
-    val animatedGlowAlpha by animateFloatAsState(
-        targetValue = if (isActive) 0.50f else 0.0f,
-        animationSpec = tween(durationMillis = 200),
-        label = "lyricGlow"
-    )
-
-    val animatedColor by animateColorAsState(
-        targetValue = if (isActive) Color.White else Color.White.copy(alpha = 0.75f),
-        animationSpec = tween(durationMillis = 200),
-        label = "lyricColor"
-    )
-
-    // Keyed to isActive so active state initialization starts on frame 0 without delay
-    val shimmerProgress = remember(isActive) { Animatable(if (isActive) 0f else 1f) }
-
-    LaunchedEffect(isActive) {
-        if (isActive) {
-            shimmerProgress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 650)
-            )
-        }
-    }
-
-    val shimmerVal = shimmerProgress.value
-    // Immediate frame-0 activation when isActive becomes true
-    val isShimmering = isActive && shimmerVal < 1f
-
-    val textShadow = if (animatedGlowAlpha > 0.01f) {
+    // Immediate active glow shadow on frame 0 when isActive is true
+    val textShadow = if (isActive) {
         Shadow(
-            color = Color.White.copy(alpha = animatedGlowAlpha),
+            color = Color.White.copy(alpha = 0.50f),
             offset = Offset.Zero,
             blurRadius = 14f
         )
@@ -190,18 +174,20 @@ private fun LyricLineItem(
         shadow = textShadow
     )
 
+    val isShimmering = isActive && shimmerProgress < 1f
+
     val finalStyle = if (isShimmering) {
-        val center = shimmerVal
+        val center = shimmerProgress
         val start = (center - 0.25f).coerceIn(0f, 1f)
         val end = (center + 0.25f).coerceIn(0f, 1f)
         baseStyle.copy(
             brush = Brush.linearGradient(
                 colorStops = arrayOf(
-                    0.0f to Color.White.copy(alpha = 0.75f),
-                    start to Color.White.copy(alpha = 0.85f),
+                    0.0f to Color.White.copy(alpha = 0.80f),
+                    start to Color.White.copy(alpha = 0.90f),
                     center to Color.White,
-                    end to Color.White.copy(alpha = 0.85f),
-                    1.0f to Color.White.copy(alpha = 0.75f)
+                    end to Color.White.copy(alpha = 0.90f),
+                    1.0f to Color.White.copy(alpha = 0.80f)
                 )
             )
         )
@@ -216,14 +202,14 @@ private fun LyricLineItem(
             .graphicsLayer {
                 scaleX = animatedScale
                 scaleY = animatedScale
-                alpha = animatedAlpha
+                alpha = if (isActive) 1.0f else animatedAlpha
             },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = line.text.ifEmpty { " " },
             style = finalStyle,
-            color = if (isShimmering) Color.Unspecified else animatedColor,
+            color = if (isActive) Color.White else Color.White.copy(alpha = targetAlpha),
             textAlign = TextAlign.Center
         )
     }
