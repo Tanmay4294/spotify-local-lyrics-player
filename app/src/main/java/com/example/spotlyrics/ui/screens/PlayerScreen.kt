@@ -354,7 +354,7 @@ private fun LandscapePlayerLayout(
                 TrackHeader(
                     track = if (isConnected) currentTrack else null
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Progress / seek bar
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -388,7 +388,7 @@ private fun LandscapePlayerLayout(
                             .padding(horizontal = 8.dp)
                             .height(2.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
