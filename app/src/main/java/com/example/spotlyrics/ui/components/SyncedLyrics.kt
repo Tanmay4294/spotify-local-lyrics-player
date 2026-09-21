@@ -136,45 +136,43 @@ private fun LyricLineItem(
 
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
-        animationSpec = tween(durationMillis = 350),
+        animationSpec = tween(durationMillis = 250),
         label = "lyricAlpha"
     )
 
     val animatedScale by animateFloatAsState(
         targetValue = if (isActive) 1.04f else 1.00f,
-        animationSpec = tween(durationMillis = 350),
+        animationSpec = tween(durationMillis = 250),
         label = "lyricScale"
     )
 
     val animatedGlowAlpha by animateFloatAsState(
-        targetValue = if (isActive) 0.45f else 0.0f,
-        animationSpec = tween(durationMillis = 350),
+        targetValue = if (isActive) 0.50f else 0.0f,
+        animationSpec = tween(durationMillis = 200),
         label = "lyricGlow"
     )
 
     val animatedColor by animateColorAsState(
         targetValue = if (isActive) Color.White else Color.White.copy(alpha = 0.75f),
-        animationSpec = tween(durationMillis = 350),
+        animationSpec = tween(durationMillis = 200),
         label = "lyricColor"
     )
 
-    val shimmerProgress = remember { Animatable(0f) }
+    // Keyed to isActive so active state initialization starts on frame 0 without delay
+    val shimmerProgress = remember(isActive) { Animatable(if (isActive) 0f else 1f) }
 
-    // Shimmer effect triggers ONCE when active status changes to true
     LaunchedEffect(isActive) {
         if (isActive) {
-            shimmerProgress.snapTo(0f)
             shimmerProgress.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 750)
+                animationSpec = tween(durationMillis = 650)
             )
-        } else {
-            shimmerProgress.snapTo(0f)
         }
     }
 
     val shimmerVal = shimmerProgress.value
-    val isShimmering = isActive && shimmerVal > 0f && shimmerVal < 1f
+    // Immediate frame-0 activation when isActive becomes true
+    val isShimmering = isActive && shimmerVal < 1f
 
     val textShadow = if (animatedGlowAlpha > 0.01f) {
         Shadow(
