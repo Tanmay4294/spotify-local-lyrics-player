@@ -22,6 +22,7 @@ class AppearancePreferences private constructor(private val context: Context) {
             } catch (e: Exception) {
                 if (modeString == "ALBUM_COLOR") AppearanceMode.AlbumColor
                 else if (modeString == "DYNAMIC_ALBUM_ART") AppearanceMode.DynamicAlbumArt
+                else if (modeString == "DYNAMIC_BACKGROUND") AppearanceMode.DynamicBackground
                 else AppearanceMode.AlbumColor
             }
         }

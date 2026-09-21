@@ -162,6 +162,39 @@ fun SettingsDialog(
                             )
                         }
                     }
+
+                    // Option 3: Dynamic Background
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.setAppearanceMode(AppearanceMode.DynamicBackground) }
+                            .background(
+                                if (appearanceMode == AppearanceMode.DynamicBackground)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        RadioButton(
+                            selected = appearanceMode == AppearanceMode.DynamicBackground,
+                            onClick = { viewModel.setAppearanceMode(AppearanceMode.DynamicBackground) }
+                        )
+                        Column {
+                            Text(
+                                text = "Dynamic Background",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                            )
+                            Text(
+                                text = "Living generative wallpaper from album palette",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
 
                 // Section 2: Spotify Connection

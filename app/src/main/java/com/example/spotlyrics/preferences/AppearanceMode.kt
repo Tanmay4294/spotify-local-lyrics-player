@@ -2,5 +2,6 @@ package com.example.spotlyrics.preferences
 
 enum class AppearanceMode {
     AlbumColor,
-    DynamicAlbumArt
+    DynamicAlbumArt,
+    DynamicBackground
 }

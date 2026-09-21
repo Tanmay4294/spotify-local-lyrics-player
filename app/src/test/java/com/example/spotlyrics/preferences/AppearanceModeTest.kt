@@ -18,11 +18,12 @@ class AppearanceModeTest {
     }
 
     @Test
-    fun appearanceModeEnumContainsExactlyTwoModes() {
+    fun appearanceModeEnumContainsExactlyThreeModes() {
         val values = AppearanceMode.values()
-        assertEquals(2, values.size)
+        assertEquals(3, values.size)
         assertTrue(values.contains(AppearanceMode.AlbumColor))
         assertTrue(values.contains(AppearanceMode.DynamicAlbumArt))
+        assertTrue(values.contains(AppearanceMode.DynamicBackground))
     }
 
     @Test
@@ -30,16 +31,24 @@ class AppearanceModeTest {
         var currentMode = AppearanceMode.AlbumColor
         assertEquals(AppearanceMode.AlbumColor, currentMode)
         assertNotEquals(AppearanceMode.DynamicAlbumArt, currentMode)
+        assertNotEquals(AppearanceMode.DynamicBackground, currentMode)
 
         currentMode = AppearanceMode.DynamicAlbumArt
         assertEquals(AppearanceMode.DynamicAlbumArt, currentMode)
         assertNotEquals(AppearanceMode.AlbumColor, currentMode)
+        assertNotEquals(AppearanceMode.DynamicBackground, currentMode)
+
+        currentMode = AppearanceMode.DynamicBackground
+        assertEquals(AppearanceMode.DynamicBackground, currentMode)
+        assertNotEquals(AppearanceMode.AlbumColor, currentMode)
+        assertNotEquals(AppearanceMode.DynamicAlbumArt, currentMode)
     }
 
     @Test
-    fun appearanceModeValueOfParsingSupportsBothFormats() {
+    fun appearanceModeValueOfParsingSupportsAllFormats() {
         assertEquals(AppearanceMode.AlbumColor, AppearanceMode.valueOf("AlbumColor"))
         assertEquals(AppearanceMode.DynamicAlbumArt, AppearanceMode.valueOf("DynamicAlbumArt"))
+        assertEquals(AppearanceMode.DynamicBackground, AppearanceMode.valueOf("DynamicBackground"))
     }
 
     @Test

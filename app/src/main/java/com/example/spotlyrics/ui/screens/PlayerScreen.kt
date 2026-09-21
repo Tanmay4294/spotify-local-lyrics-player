@@ -34,6 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.view.WindowManager
+import androidx.compose.runtime.DisposableEffect
 import com.example.spotlyrics.lyrics.LyricsStatus
 import com.example.spotlyrics.preferences.AppearanceMode
 import com.example.spotlyrics.spotify.SpotifyConnectionState
@@ -41,6 +44,7 @@ import com.example.spotlyrics.spotify.SpotifyTrack
 import com.example.spotlyrics.ui.AlbumColorBackground
 import com.example.spotlyrics.ui.AlbumColorExtractor
 import com.example.spotlyrics.ui.DynamicAlbumBackground
+import com.example.spotlyrics.ui.DynamicBackground
 import com.example.spotlyrics.ui.PlayerViewModel
 import com.example.spotlyrics.ui.SettingsDialog
 import com.example.spotlyrics.ui.components.AlbumArtwork
@@ -54,6 +58,13 @@ fun PlayerScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+val activity = LocalContext.current as? Activity
+DisposableEffect(Unit) {
+    activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    onDispose {
+        activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+}
 
     val connectionState by viewModel.connectionState.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
@@ -96,6 +107,12 @@ fun PlayerScreen(
             AppearanceMode.DynamicAlbumArt -> {
                 DynamicAlbumBackground(
                     context = context,
+                    bitmap = artworkBitmap,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            AppearanceMode.DynamicBackground -> {
+                DynamicBackground(
                     bitmap = artworkBitmap,
                     modifier = Modifier.fillMaxSize()
                 )
