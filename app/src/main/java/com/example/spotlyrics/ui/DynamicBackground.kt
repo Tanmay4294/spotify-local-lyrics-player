@@ -66,9 +66,9 @@ object PaletteExtractor {
             val color = Color(swatch.rgb)
             val weight = (swatch.population / totalPopulation).coerceIn(0.12f, 0.60f)
 
-            // Low-frequency harmonic motion parameters per swatch
-            val speedX = 0.08f + (index * 0.025f)
-            val speedY = 0.06f + (index * 0.035f)
+            // Low-frequency harmonic motion parameters per swatch (medium-fast organic drift)
+            val speedX = 0.22f + (index * 0.05f)
+            val speedY = 0.18f + (index * 0.06f)
             val phaseX = index * 1.4f
             val phaseY = index * 2.2f
 
@@ -105,10 +105,10 @@ object PaletteExtractor {
 
     fun defaultFallbackPalette(): List<WeightedColor> {
         return listOf(
-            WeightedColor(Color(0xFF2C3E50), 0.40f, 0.08f, 0.06f, 0.0f, 0.0f, 0.35f, 0.35f),
-            WeightedColor(Color(0xFF8E44AD), 0.30f, 0.10f, 0.07f, 1.4f, 1.6f, 0.65f, 0.35f),
-            WeightedColor(Color(0xFF2980B9), 0.20f, 0.07f, 0.09f, 2.8f, 3.0f, 0.25f, 0.65f),
-            WeightedColor(Color(0xFF16A085), 0.10f, 0.11f, 0.05f, 4.2f, 4.4f, 0.75f, 0.65f)
+            WeightedColor(Color(0xFF2C3E50), 0.40f, 0.22f, 0.18f, 0.0f, 0.0f, 0.35f, 0.35f),
+            WeightedColor(Color(0xFF8E44AD), 0.30f, 0.27f, 0.24f, 1.4f, 1.6f, 0.65f, 0.35f),
+            WeightedColor(Color(0xFF2980B9), 0.20f, 0.32f, 0.30f, 2.8f, 3.0f, 0.25f, 0.65f),
+            WeightedColor(Color(0xFF16A085), 0.10f, 0.37f, 0.36f, 4.2f, 4.4f, 0.75f, 0.65f)
         )
     }
 }
