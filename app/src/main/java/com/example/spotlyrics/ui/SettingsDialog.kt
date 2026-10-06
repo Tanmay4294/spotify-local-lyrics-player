@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.spotlyrics.diagnostics.HealthMonitor
 import com.example.spotlyrics.diagnostics.ProviderHealth
+import com.example.spotlyrics.lyrics.LyricsProviderChoice
 import com.example.spotlyrics.preferences.AppearanceMode
 import com.example.spotlyrics.spotify.SpotifyConnectionState
 
@@ -45,6 +46,7 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val appearanceMode by viewModel.appearanceMode.collectAsState()
+    val selectedProvider by viewModel.selectedLyricsProvider.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val isConnected = connectionState is SpotifyConnectionState.Connected
 
@@ -192,6 +194,46 @@ fun SettingsDialog(
                                 text = "Living generative wallpaper from album palette",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Section 2: Lyrics Provider
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Lyrics Provider",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+
+                    LyricsProviderChoice.entries.forEach { choice ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.setLyricsProvider(choice) }
+                                .background(
+                                    if (selectedProvider == choice)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedProvider == choice,
+                                onClick = { viewModel.setLyricsProvider(choice) }
+                            )
+                            Text(
+                                text = choice.displayName,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = if (choice == LyricsProviderChoice.LRCLIB || selectedProvider == choice) FontWeight.Bold else FontWeight.Medium
+                                )
                             )
                         }
                     }

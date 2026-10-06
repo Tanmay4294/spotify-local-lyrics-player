@@ -11,8 +11,10 @@ import com.example.spotlyrics.lyrics.LyricsManager
 import com.example.spotlyrics.lyrics.LyricsProvider
 import com.example.spotlyrics.lyrics.LyricsStatus
 import com.example.spotlyrics.lyrics.providers.LrcLibProvider
+import com.example.spotlyrics.lyrics.LyricsProviderChoice
 import com.example.spotlyrics.preferences.AppearanceMode
 import com.example.spotlyrics.preferences.AppearancePreferences
+import com.example.spotlyrics.preferences.LyricsPreferences
 import com.example.spotlyrics.spotify.SpotifyConnectionState
 import com.example.spotlyrics.spotify.SpotifyManager
 import com.example.spotlyrics.spotify.SpotifyPlayerState
@@ -29,12 +31,16 @@ import kotlinx.coroutines.launch
 
 class PlayerViewModel(
     private val context: Context,
-    private val lyricsProvider: LyricsProvider = LrcLibProvider()
+    private val lyricsProvider: LyricsProvider? = null
 ) : ViewModel() {
 
     private val spotifyManager = SpotifyManager.getInstance()
     private val cacheRepository = LyricsCacheRepository(AppDatabase.getInstance(context).lyricsCacheDao())
-    private val lyricsManager = LyricsManager(lyricsProvider, cacheRepository)
+    private val lyricsManager = if (lyricsProvider != null) {
+        LyricsManager(lyricsProvider, cacheRepository)
+    } else {
+        LyricsManager(cacheRepository)
+    }
 
     private val _connectionState = MutableStateFlow<SpotifyConnectionState>(SpotifyConnectionState.Disconnected)
     val connectionState: StateFlow<SpotifyConnectionState> = _connectionState
@@ -71,11 +77,33 @@ class PlayerViewModel(
         }
     }
 
+    // Expose selected lyrics provider flow
+    val selectedLyricsProvider: StateFlow<LyricsProviderChoice> = LyricsPreferences.getProviderFlow(context)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, LyricsProviderChoice.LRCLIB)
+
+    // Update selected lyrics provider
+    fun setLyricsProvider(providerChoice: LyricsProviderChoice) {
+        viewModelScope.launch {
+            LyricsPreferences.setProvider(context, providerChoice)
+            lyricsManager.setPreferredProvider(providerChoice)
+            lyricsManager.retry(_playerState.value?.track)
+        }
+    }
+
     val lyricsStatus: StateFlow<LyricsStatus> = lyricsManager.lyricsStatus
 
     init {
         observeSpotify()
+        observeLyricsProvider()
         startPositionTicker()
+    }
+
+    private fun observeLyricsProvider() {
+        viewModelScope.launch {
+            selectedLyricsProvider.collect { choice ->
+                lyricsManager.setPreferredProvider(choice)
+            }
+        }
     }
 
 
