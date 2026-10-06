@@ -63,27 +63,27 @@ object PaletteExtractor {
         val result = mutableListOf<WeightedColor>()
 
         topSwatches.forEachIndexed { index, swatch ->
-            val color = Color(swatch.rgb)
-            val weight = (swatch.population / totalPopulation).coerceIn(0.12f, 0.60f)
+            val color = saturateAndEnrichColor(swatch.rgb)
+            val weight = (swatch.population / totalPopulation).coerceIn(0.15f, 0.65f)
 
-            // Low-frequency harmonic motion parameters per swatch (medium-fast organic drift)
-            val speedX = 0.22f + (index * 0.05f)
-            val speedY = 0.18f + (index * 0.06f)
-            val phaseX = index * 1.4f
-            val phaseY = index * 2.2f
+            // Increased fluid motion speed parameters for clearly noticeable live animation
+            val speedX = 0.55f + (index * 0.12f)
+            val speedY = 0.45f + (index * 0.14f)
+            val phaseX = index * 1.5f
+            val phaseY = index * 2.3f
 
-            // Quadrant layout distribution ratios
+            // Strategic distribution across quadrants
             val baseX = when (index % 4) {
-                0 -> 0.35f
-                1 -> 0.65f
+                0 -> 0.30f
+                1 -> 0.70f
                 2 -> 0.25f
                 else -> 0.75f
             }
             val baseY = when (index % 4) {
-                0 -> 0.35f
-                1 -> 0.35f
-                2 -> 0.65f
-                else -> 0.65f
+                0 -> 0.30f
+                1 -> 0.30f
+                2 -> 0.70f
+                else -> 0.70f
             }
 
             result.add(
@@ -103,12 +103,24 @@ object PaletteExtractor {
         return if (result.isEmpty()) defaultFallbackPalette() else result
     }
 
+    private fun saturateAndEnrichColor(rgb: Int): Color {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(rgb, hsv)
+
+        // Boost saturation for vibrant, rich album-derived colors while maintaining soft glass tone
+        hsv[1] = (hsv[1] * 1.45f + 0.20f).coerceIn(0.50f, 0.95f)
+        // Ensure healthy brightness value
+        hsv[2] = (hsv[2] * 1.20f + 0.15f).coerceIn(0.45f, 0.90f)
+
+        return Color(android.graphics.Color.HSVToColor(hsv))
+    }
+
     fun defaultFallbackPalette(): List<WeightedColor> {
         return listOf(
-            WeightedColor(Color(0xFF2C3E50), 0.40f, 0.22f, 0.18f, 0.0f, 0.0f, 0.35f, 0.35f),
-            WeightedColor(Color(0xFF8E44AD), 0.30f, 0.27f, 0.24f, 1.4f, 1.6f, 0.65f, 0.35f),
-            WeightedColor(Color(0xFF2980B9), 0.20f, 0.32f, 0.30f, 2.8f, 3.0f, 0.25f, 0.65f),
-            WeightedColor(Color(0xFF16A085), 0.10f, 0.37f, 0.36f, 4.2f, 4.4f, 0.75f, 0.65f)
+            WeightedColor(Color(0xFF34495E), 0.40f, 0.55f, 0.45f, 0.0f, 0.0f, 0.30f, 0.30f),
+            WeightedColor(Color(0xFF9B59B6), 0.30f, 0.65f, 0.55f, 1.5f, 1.8f, 0.70f, 0.30f),
+            WeightedColor(Color(0xFF2980B9), 0.20f, 0.75f, 0.65f, 3.0f, 3.2f, 0.25f, 0.70f),
+            WeightedColor(Color(0xFF1ABC9C), 0.15f, 0.85f, 0.75f, 4.5f, 4.7f, 0.75f, 0.70f)
         )
     }
 }
@@ -136,7 +148,7 @@ fun DynamicBackground(
         previousPalette = null
     }
 
-    // Continuous smooth animation clock driving fluid organic drift
+    // Continuous smooth animation clock driving fluid organic liquid glass motion
     LaunchedEffect(Unit) {
         var lastNanos = 0L
         while (true) {
@@ -151,14 +163,14 @@ fun DynamicBackground(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Base dark ambient canvas
+        // Deep ambient base canvas
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0F0F12))
+                .background(Color(0xFF0B0C10))
         )
 
-        // Previous palette field (fading out during crossfade)
+        // Previous palette field (fading out during track transition)
         previousPalette?.let { prevList ->
             PaletteColorCanvas(
                 palette = prevList,
@@ -168,7 +180,7 @@ fun DynamicBackground(
             )
         }
 
-        // Current palette field (fading in during crossfade)
+        // Current palette field (fading in during track transition)
         PaletteColorCanvas(
             palette = currentPalette,
             timeSeconds = timeSeconds,
@@ -176,12 +188,21 @@ fun DynamicBackground(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Subtle dark translucent overlay (30% black) for contrast & readability
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.30f))
-        )
+        // Soft liquid glass overlay (vignette & contrast filter)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Subtle radial ambient vignette to accentuate glassy depth
+            drawRect(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color.Black.copy(alpha = 0.25f),
+                        Color.Black.copy(alpha = 0.45f)
+                    ),
+                    center = Offset(size.width * 0.5f, size.height * 0.5f),
+                    radius = maxOf(size.width, size.height) * 0.75f
+                )
+            )
+        }
     }
 }
 
@@ -201,22 +222,27 @@ private fun PaletteColorCanvas(
         val height = size.height
         val maxDim = maxOf(width, height)
 
-        palette.forEach { item ->
-            // Continuous harmonic drift path
-            val offsetX = (sin(timeSeconds * item.speedX + item.phaseX) * 0.22f * width)
-            val offsetY = (cos(timeSeconds * item.speedY + item.phaseY) * 0.22f * height)
+        palette.forEachIndexed { index, item ->
+            // Compound multi-wave harmonic motion for continuous fluid drift and morphing
+            val driftX = (sin(timeSeconds * item.speedX + item.phaseX) * 0.32f +
+                    cos(timeSeconds * 0.35f + item.phaseY) * 0.12f) * width
+            val driftY = (cos(timeSeconds * item.speedY + item.phaseY) * 0.32f +
+                    sin(timeSeconds * 0.40f + item.phaseX) * 0.12f) * height
 
-            val centerX = (item.baseXRatio * width) + offsetX
-            val centerY = (item.baseYRatio * height) + offsetY
+            val centerX = (item.baseXRatio * width) + driftX
+            val centerY = (item.baseYRatio * height) + driftY
 
-            // Scale radius based on color population weight
-            val radius = maxDim * (0.45f + item.weight * 0.55f)
+            // Organic liquid expansion/contraction pulsating
+            val pulse = 1f + 0.20f * sin(timeSeconds * 0.85f + index * 1.3f)
+            val radius = maxDim * (0.50f + item.weight * 0.45f) * pulse
 
+            // Rich multi-stop radial gradient for soft liquid glass color fields
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        item.color.copy(alpha = 0.70f),
-                        item.color.copy(alpha = 0.35f),
+                        item.color.copy(alpha = 0.85f),
+                        item.color.copy(alpha = 0.55f),
+                        item.color.copy(alpha = 0.20f),
                         Color.Transparent
                     ),
                     center = Offset(centerX, centerY),
